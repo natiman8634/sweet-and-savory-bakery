@@ -1,0 +1,8 @@
+{
+  "name": "bakery-monorepo",
+  "private": true,
+  "workspaces": [
+    "Back-end",
+    "Front-end"
+  ]
+}
