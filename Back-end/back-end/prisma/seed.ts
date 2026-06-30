@@ -25,28 +25,22 @@ async function main() {
   console.log('📝 Creating user roles...');
   
   const roleData = [
-    { role_name: 'Admin' },
-    { role_name: 'Staff' },
-    { role_name: 'Customer' }
+    { id: 1, role_name: 'Admin' },
+    { id: 2, role_name: 'Staff' },
+    { id: 3, role_name: 'Customer' }
   ];
 
   for (const role of roleData) {
     await prisma.userRoles.upsert({
-      where: { role_name: role.role_name },
-      update: {},
+      where: { id: role.id },
+      update: { role_name: role.role_name },
       create: role
     });
   }
 
-  const adminRole = await prisma.userRoles.findUnique({
-    where: { role_name: 'Admin' }
-  });
-  const staffRole = await prisma.userRoles.findUnique({
-    where: { role_name: 'Staff' }
-  });
-  const customerRole = await prisma.userRoles.findUnique({
-    where: { role_name: 'Customer' }
-  });
+  const adminRole = { id: 1 };
+  const staffRole = { id: 2 };
+  const customerRole = { id: 3 };
   
   console.log('✅ User roles created');
 
@@ -343,7 +337,26 @@ async function main() {
   console.log(`✅ Created ${notificationData.length} notifications`);
 
   // ============================================
-  // 8. SUMMARY
+  // 8. RESET AUTOINCREMENT SEQUENCES
+  // ============================================
+  console.log('🔄 Resetting database sequences...');
+  const tables = ['UserRoles', 'OrderStatuses', 'Categories', 'Notifications'];
+  for (const table of tables) {
+    try {
+      const result = await prisma.$queryRawUnsafe<any[]>(`SELECT MAX(id) as max FROM "${table}"`);
+      const maxVal = result[0]?.max;
+      if (maxVal !== null && maxVal !== undefined) {
+        await prisma.$executeRawUnsafe(
+          `SELECT setval(pg_get_serial_sequence('"${table}"', 'id'), ${maxVal})`
+        );
+      }
+    } catch (err) {
+      console.warn(`⚠️ Could not reset sequence for table ${table}:`, err);
+    }
+  }
+
+  // ============================================
+  // 9. SUMMARY
   // ============================================
   console.log('\n🎉 Seeding completed successfully!');
   console.log('\n📊 Summary:');
