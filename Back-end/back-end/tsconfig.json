@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
     // Environment Settings
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "target": "esnext",
     
-    // Node.js Type Definitions - THIS FIXES THE ERROR
+    // Node.js Type Definitions
     "lib": ["esnext"],
     "types": ["node"],
 
@@ -24,6 +24,12 @@
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
-    "skipLibCheck": true
-  }
+    "skipLibCheck": true,
+
+    // ✅ ADD THIS: Allow importing TypeScript files without .js extension during development
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }
