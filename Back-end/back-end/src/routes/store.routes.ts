@@ -1,4 +1,3 @@
-// src/routes/store.routes.ts
 import express from 'express';
 import {
   getProducts,
@@ -14,7 +13,7 @@ import {
 
 const router = express.Router();
 
-// ✅ TEST ROUTE
+//  TEST ROUTE
 router.get('/test', (req, res) => {
   console.log('✅ Test route hit!');
   res.json({
@@ -46,7 +45,7 @@ router.get('/orders/:id', getOrderById);
 router.get('/orders/customer/:customerId', getCustomerOrders);
 router.put('/orders/:id/cancel', cancelOrder);
 
-// ✅ Debug: Log routes when router is created
+//  Debug: Log routes when router is created
 console.log('\n🔄 Store Router created with routes:');
 router.stack.forEach((layer: any) => {
   if (layer.route) {

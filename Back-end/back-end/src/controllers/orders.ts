@@ -1,9 +1,5 @@
-// controllers/orders.ts
 import type { Request, Response } from 'express';
-import prisma from '../lib/prisma.js';  // ✅ Import from lib instead of creating new instance
-
-// ❌ Remove this line - we're using the singleton from lib/prisma.ts
-// const prisma = new PrismaClient();
+import prisma from '../lib/prisma.js'; 
 
 interface OrderItemInput {
   product_id: string;
@@ -18,10 +14,6 @@ interface OrderInput {
   payment_method: string;
 }
 
-/**
- * POST /api/orders
- * Create a new order with stock validation and transaction
- */
 export const createOrder = async (req: Request, res: Response) => {
   try {
     const {
@@ -185,10 +177,7 @@ export const createOrder = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * GET /api/orders/:id
- * Fetch order by ID
- */
+
 export const getOrderById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -266,10 +255,6 @@ export const getOrderById = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * GET /api/orders/customer/:customerId
- * Fetch all orders for a customer
- */
 export const getCustomerOrders = async (req: Request, res: Response) => {
   try {
     const { customerId } = req.params;
@@ -359,10 +344,7 @@ export const getCustomerOrders = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * PUT /api/orders/:id/cancel
- * Cancel an order (only if status is 'pending')
- */
+
 export const cancelOrder = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

@@ -1,12 +1,11 @@
-// app.ts
 import express from 'express';
 import authRoutes from './routes/auth.routes.js';
 import cors from 'cors';
-import storeRoutes from './routes/store.routes.js';  // ✅ Import store routes with .js extension
+import storeRoutes from './routes/store.routes.js';  
 
 const app = express();
 
-// Middleware
+
 
 app.use(cors());
 app.use(express.json()); 
@@ -17,18 +16,8 @@ app.get('/', (req, res) => {
   res.send('Bakery API is running!');
 });
 
-// ============================================================
-// API ROUTES
-// ============================================================
-
-// Store routes (products, categories, orders)
 app.use('/api', storeRoutes);
 
-// ============================================================
-// ERROR HANDLING
-// ============================================================
-
-// 404 handler for undefined routes
 app.use((req, res) => {
   res.status(404).json({
     success: false,

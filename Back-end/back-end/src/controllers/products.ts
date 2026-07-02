@@ -1,11 +1,6 @@
-// src/controllers/products.ts
 import type { Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 
-/**
- * GET /api/products
- * Fetch all items currently marked as is_available: true
- */
 export const getProducts = async (req: Request, res: Response) => {
   try {
     const { category, search, minPrice, maxPrice } = req.query;
@@ -86,10 +81,7 @@ export const getProducts = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * GET /api/products/:id
- * Fetch a single product by ID
- */
+
 export const getProductById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -145,10 +137,7 @@ export const getProductById = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * GET /api/categories
- * Fetch all categories
- */
+
 export const getCategories = async (req: Request, res: Response) => {
   try {
     const categories = await prisma.categories.findMany({

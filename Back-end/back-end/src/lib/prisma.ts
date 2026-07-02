@@ -1,9 +1,7 @@
-// src/lib/prisma.ts
 import { PrismaClient } from '@prisma/client';
 import { PrismaNeon } from '@prisma/adapter-neon';
-import { Pool } from '@neondatabase/serverless';
 
-// ✅ Check if DATABASE_URL is set
+//  Check if DATABASE_URL is set
 if (!process.env.DATABASE_URL) {
   console.error('❌ DATABASE_URL is not set in environment variables');
   console.error('Please create a .env file with DATABASE_URL');
@@ -12,11 +10,10 @@ if (!process.env.DATABASE_URL) {
 
 console.log('✅ DATABASE_URL found in environment');
 
-// ✅ Create Neon adapter for Prisma 7
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaNeon(pool);
+//  Create Neon adapter for Prisma 7
+const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL });
 
-// ✅ Initialize PrismaClient with adapter
+//  Initialize PrismaClient with adapter
 const prisma = new PrismaClient({
   adapter,
   log: process.env.NODE_ENV === 'development' 
@@ -24,7 +21,7 @@ const prisma = new PrismaClient({
     : ['error'],
 });
 
-// ✅ Handle connection events
+//  Handle connection events
 prisma.$connect()
   .then(() => {
     console.log('✅ Connected to database successfully!');
