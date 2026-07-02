@@ -6,7 +6,6 @@ import storeRoutes from './routes/store.routes.js';
 const app = express();
 
 
-
 app.use(cors());
 app.use(express.json()); 
 
@@ -24,6 +23,7 @@ app.use((req, res) => {
     message: 'Route not found',
   });
 });
+
 
 // Global error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
