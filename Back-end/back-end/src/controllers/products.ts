@@ -81,7 +81,6 @@ export const getProducts = async (req: Request, res: Response) => {
   }
 };
 
-
 export const getProductById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -136,7 +135,6 @@ export const getProductById = async (req: Request, res: Response) => {
     });
   }
 };
-
 
 export const getCategories = async (req: Request, res: Response) => {
   try {
