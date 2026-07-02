@@ -28,17 +28,16 @@ router.get('/test', (req, res) => {
   });
 });
 
-// ============================================================
 // PRODUCT ROUTES
-// ============================================================
+
 
 router.get('/products', getProducts);
 router.get('/products/:id', getProductById);
 router.get('/categories', getCategories);
 
-// ============================================================
+
 // ORDER ROUTES
-// ============================================================
+
 
 router.post('/orders', createOrder);
 router.get('/orders/:id', getOrderById);

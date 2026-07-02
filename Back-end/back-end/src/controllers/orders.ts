@@ -182,7 +182,7 @@ export const getOrderById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    // ✅ Fix: Ensure id is a string
+    // Ensure id is a string
     const orderId = typeof id === 'string' ? id : String(id);
 
     if (!orderId) {
@@ -260,7 +260,7 @@ export const getCustomerOrders = async (req: Request, res: Response) => {
     const { customerId } = req.params;
     const { limit = 10, offset = 0, status } = req.query;
 
-    // ✅ Fix: Ensure customerId is a string
+    //  Ensure customerId is a string
     const customerIdStr = typeof customerId === 'string' ? customerId : String(customerId);
 
     if (!customerIdStr) {
@@ -349,7 +349,7 @@ export const cancelOrder = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    // ✅ Fix: Ensure id is a string
+    //  Ensure id is a string
     const orderId = typeof id === 'string' ? id : String(id);
 
     if (!orderId) {
@@ -379,7 +379,7 @@ export const cancelOrder = async (req: Request, res: Response) => {
       });
     }
 
-    // ✅ Fix: Access status_name through the status relation
+    // Access status_name through the status relation
     const statusName = order.status?.status_name || 'unknown';
 
     // Check if order is pending (status_id = 1)
