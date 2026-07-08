@@ -9,7 +9,10 @@ import {
   getOrderById,
   getCustomerOrders,
   cancelOrder,
+  updateOrderStatus,
 } from '../controllers/orders.js';
+
+
 
 const router = express.Router();
 
@@ -44,6 +47,7 @@ router.post('/orders', createOrder);
 router.get('/orders/:id', getOrderById);
 router.get('/orders/customer/:customerId', getCustomerOrders);
 router.put('/orders/:id/cancel', cancelOrder);
+router.patch('/orders/:id/status', updateOrderStatus);
 
 //  Debug: Log routes when router is created
 console.log('\n🔄 Store Router created with routes:');

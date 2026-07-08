@@ -86,7 +86,6 @@ export const createOrder = async (req: Request, res: Response) => {
   }
 };
 
-
 export const getOrderById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -253,7 +252,6 @@ export const getCustomerOrders = async (req: Request, res: Response) => {
   }
 };
 
-
 export const cancelOrder = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -345,5 +343,39 @@ export const cancelOrder = async (req: Request, res: Response) => {
       message: 'Failed to cancel order',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
+  }
+};
+
+export const updateOrderStatus = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status_id } = req.body; 
+
+    // 1. Update the order status
+    const updatedOrder = await prisma.orders.update({
+      where: { id: String(id) }, 
+      data: { status_id: Number(status_id) },
+    });
+
+    // 2. Create a notification for the user
+    const profile = await prisma.customerProfiles.findUnique({
+      where: { id: updatedOrder.customer_id as string }
+    });
+
+    if (profile) {
+      await prisma.notifications.create({
+        data: {
+          user_id: profile.user_id,
+          message: `Your order status has been updated to status ID: ${status_id}`,
+          trigger_type: 'ORDER_STATUS_UPDATE', 
+          is_read: false,
+        },
+      });
+    }
+
+    res.json({ success: true, data: updatedOrder });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Failed to update status" });
   }
 };
