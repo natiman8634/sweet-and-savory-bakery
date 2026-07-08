@@ -1,5 +1,18 @@
 import type { Request, Response } from 'express';
-import prisma from '../lib/prisma.js'; 
+import prisma from '../lib/prisma.js';
+
+// Extend Request type for authenticated requests
+interface AuthRequest extends Request {
+  user?: {
+    userId: string;
+    roleId: number;
+    email?: string;
+    role?: {
+      id: number;
+      role_name: string;
+    };
+  };
+}
 
 interface OrderItemInput {
   product_id: string;
@@ -7,90 +20,228 @@ interface OrderItemInput {
 }
 
 interface OrderInput {
-  customer_id: string;
+  customer_id?: string;
   items: OrderItemInput[];
   order_type: string;
   scheduled_for?: string;
-  payment_method: string;
+  payment_method?: string;
 }
 
-export const createOrder = async (req: Request, res: Response) => {
-  try {
-    const { customer_id, items, order_type, scheduled_for, payment_method } = req.body as OrderInput;
+/**
+ * Validate product availability and stock before creating order
+ */
+const validateOrderItems = async (items: OrderItemInput[]) => {
+  const validationErrors: any[] = [];
+  const validatedItems: any[] = [];
 
-    if (!customer_id || !items || !items.length || !order_type || !payment_method) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
+  for (const item of items) {
+    const product = await prisma.products.findUnique({
+      where: { id: item.product_id }
+    });
+
+    if (!product) {
+      validationErrors.push({
+        product_id: item.product_id,
+        error: 'Product not found'
+      });
+      continue;
     }
 
-    // Wrap in a transaction with a longer timeout to prevent P2028
+    // Check 1: Product availability
+    if (!product.is_available) {
+      validationErrors.push({
+        product_id: item.product_id,
+        product_name: product.name,
+        error: `Product "${product.name}" is currently unavailable`
+      });
+      continue;
+    }
+
+    // Check 2: Stock quantity
+    if (product.stock_quantity < item.quantity) {
+      validationErrors.push({
+        product_id: item.product_id,
+        product_name: product.name,
+        available: product.stock_quantity,
+        requested: item.quantity,
+        error: `Insufficient stock for "${product.name}". Available: ${product.stock_quantity}`
+      });
+      continue;
+    }
+
+    // Check 3: Quantity validation
+    if (item.quantity <= 0) {
+      validationErrors.push({
+        product_id: item.product_id,
+        product_name: product.name,
+        error: `Invalid quantity for "${product.name}". Quantity must be at least 1`
+      });
+      continue;
+    }
+
+    validatedItems.push({
+      ...item,
+      product,
+      subtotal: Number(product.price) * item.quantity
+    });
+  }
+
+  return { validatedItems, validationErrors };
+};
+
+/**
+ * Create a new order with inventory validation
+ */
+export const createOrder = async (req: AuthRequest, res: Response) => {
+  try {
+    const { 
+      customer_id, 
+      items, 
+      order_type, 
+      scheduled_for, 
+      payment_method 
+    } = req.body as OrderInput;
+
+    // Validate required fields
+    if (!items || !items.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order must contain at least one item'
+      });
+    }
+
+    if (!order_type) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order type is required'
+      });
+    }
+
+    // Use authenticated user ID if not provided
+    const userId = customer_id || req.user?.userId;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Customer ID is required'
+      });
+    }
+
+    // 1. Validate all order items
+    const { validatedItems, validationErrors } = await validateOrderItems(items);
+
+    // If there are validation errors, reject the order
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order validation failed',
+        errors: validationErrors
+      });
+    }
+
+    // 2. Calculate total price
+    const totalPrice = validatedItems.reduce(
+      (sum: number, item: any) => sum + item.subtotal,
+      0
+    );
+
+    // 3. Get default status (Pending)
+    const pendingStatus = await prisma.orderStatuses.findFirst({
+      where: { status_name: 'Pending' }
+    });
+
+    if (!pendingStatus) {
+      throw new Error('Order status "Pending" not found');
+    }
+
+    // 4. Create order with transaction
     const result = await prisma.$transaction(async (tx) => {
-      let totalPrice = 0;
-      
-      // 1. Validate and fetch products first
-      const validatedItems = [];
-      for (const item of items) {
-        const product = await tx.products.findUnique({
-          where: { id: item.product_id },
-          select: { id: true, name: true, price: true, stock_quantity: true },
-        });
-
-        if (!product) throw new Error(`Product with ID ${item.product_id} not found`);
-        if (product.stock_quantity < item.quantity) {
-          throw new Error(`Insufficient stock for ${product.name}`);
+      // Create the order
+      const order = await tx.orders.create({
+        data: {
+          customer_id: userId,
+          total_price: totalPrice,
+          order_type: order_type,
+          scheduled_for: scheduled_for ? new Date(scheduled_for) : new Date(Date.now() + 3600000),
+          status_id: pendingStatus.id,
+          orderItems: {
+            create: validatedItems.map((item: any) => ({
+              product_id: item.product_id,
+              quantity: item.quantity,
+              subtotal: item.subtotal
+            }))
+          }
+        },
+        include: {
+          orderItems: {
+            include: {
+              product: true
+            }
+          },
+          status: true
         }
+      });
 
-        const subtotal = Number(product.price) * item.quantity;
-        totalPrice += subtotal;
-        validatedItems.push({ ...item, subtotal });
-
-        // 2. Immediate stock deduction inside loop to reduce transaction overhead
+      // 5. Deduct stock for each item
+      for (const item of validatedItems) {
         await tx.products.update({
           where: { id: item.product_id },
-          data: { stock_quantity: { decrement: item.quantity } }
+          data: {
+            stock_quantity: {
+              decrement: item.quantity
+            }
+          }
         });
       }
 
-      // 3. Create the order
-      const order = await tx.orders.create({
-        data: {
-          customer_id,
-          total_price: totalPrice,
-          order_type,
-          scheduled_for: scheduled_for ? new Date(scheduled_for) : new Date(),
-          status_id: 2, // Start as completed for this test
-          orderItems: { create: validatedItems }
-        }
-      });
-
-      // 4. Create Payment
-      await tx.payments.create({
-        data: {
-          order_id: order.id,
-          amount: totalPrice,
-          payment_method,
-          payment_status: 'completed',
-          transaction_reference: `MOCK-${Date.now()}`,
-          paid_at: new Date(),
-        }
-      });
+      // 6. Create payment record if payment method provided
+      if (payment_method) {
+        await tx.payments.create({
+          data: {
+            order_id: order.id,
+            amount: totalPrice,
+            payment_method: payment_method,
+            payment_status: 'Pending',
+            transaction_reference: `TXN-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+          }
+        });
+      }
 
       return order;
     }, {
-      timeout: 15000 // 15s timeout to resolve P2028
+      timeout: 15000 // 15s timeout
     });
 
-    res.status(201).json({ success: true, message: 'Order created', data: result });
+    // 7. Create notification for the user
+    if (userId) {
+      await prisma.notifications.create({
+        data: {
+          user_id: userId,
+          message: `Order #${result.id.slice(0, 8)} has been placed successfully. Total: $${totalPrice.toFixed(2)}`,
+          trigger_type: 'Order_Update'
+        }
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Order created successfully',
+      data: result
+    });
   } catch (error) {
     console.error('Error creating order:', error);
-    res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Unknown error' });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create order',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 };
 
-export const getOrderById = async (req: Request, res: Response) => {
+
+export const getOrderById = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-
-    // ✅ Fix: Ensure id is a string
     const orderId = typeof id === 'string' ? id : String(id);
 
     if (!orderId) {
@@ -111,6 +262,8 @@ export const getOrderById = async (req: Request, res: Response) => {
                 name: true,
                 image_url: true,
                 price: true,
+                stock_quantity: true,
+                is_available: true,
               },
             },
           },
@@ -122,12 +275,14 @@ export const getOrderById = async (req: Request, res: Response) => {
           },
         },
         customer: {
-          select: {
-            id: true,
-            full_name: true,
-            phone: true,
-            default_address: true,
-          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+              }
+            }
+          }
         },
         payment: {
           select: {
@@ -149,6 +304,17 @@ export const getOrderById = async (req: Request, res: Response) => {
       });
     }
 
+    // Check authorization - only admin or order owner can view
+    const isAdmin = req.user?.role?.role_name === 'Admin';
+    const isOwner = order.customer_id === req.user?.userId;
+
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to view this order'
+      });
+    }
+
     res.json({
       success: true,
       data: order,
@@ -163,12 +329,14 @@ export const getOrderById = async (req: Request, res: Response) => {
   }
 };
 
-export const getCustomerOrders = async (req: Request, res: Response) => {
+/**
+ * Get customer orders with filtering
+ */
+export const getCustomerOrders = async (req: AuthRequest, res: Response) => {
   try {
     const { customerId } = req.params;
     const { limit = 10, offset = 0, status } = req.query;
 
-    // ✅ Fix: Ensure customerId is a string
     const customerIdStr = typeof customerId === 'string' ? customerId : String(customerId);
 
     if (!customerIdStr) {
@@ -178,20 +346,36 @@ export const getCustomerOrders = async (req: Request, res: Response) => {
       });
     }
 
+    // Check authorization - only admin or the customer themselves can view
+    const isAdmin = req.user?.role?.role_name === 'Admin';
+    const isOwner = customerIdStr === req.user?.userId;
+
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to view these orders'
+      });
+    }
+
     const where: any = {
       customer_id: customerIdStr,
     };
 
     // If status filter is provided
     if (status) {
-      // Map status string to status_id
       const statusMap: Record<string, number> = {
         'pending': 1,
-        'completed': 2,
-        'cancelled': 3,
-        'processing': 4,
+        'processing': 2,
+        'preparing': 3,
+        'ready': 4,
+        'completed': 5,
+        'cancelled': 6,
+        'unpaid': 7,
       };
-      where.status_id = statusMap[status as string] || Number(status);
+      const statusId = statusMap[status as string];
+      if (statusId) {
+        where.status_id = statusId;
+      }
     }
 
     const orders = await prisma.orders.findMany({
@@ -204,6 +388,7 @@ export const getCustomerOrders = async (req: Request, res: Response) => {
                 id: true,
                 name: true,
                 image_url: true,
+                price: true,
               },
             },
           },
@@ -252,11 +437,241 @@ export const getCustomerOrders = async (req: Request, res: Response) => {
   }
 };
 
-export const cancelOrder = async (req: Request, res: Response) => {
+/**
+ * Get orders for the authenticated customer
+ */
+export const getMyOrders = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    const customerProfile = await prisma.customerProfiles.findFirst({
+      where: { user_id: userId }
+    });
+
+    const where: any = customerProfile
+      ? { customer_id: customerProfile.id }
+      : { customer_id: userId };
+
+    const orders = await prisma.orders.findMany({
+      where,
+      include: {
+        status: true,
+        orderItems: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                image_url: true,
+              }
+            }
+          }
+        }
+      },
+      orderBy: { created_at: 'desc' }
+    });
+
+    res.json({
+      success: true,
+      data: orders,
+    });
+  } catch (error) {
+    console.error('Error fetching my orders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch your orders',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+/**
+ * Get all orders for admins
+ */
+export const getAllOrders = async (req: AuthRequest, res: Response) => {
+  try {
+    const { limit = 10, offset = 0, status } = req.query;
+
+    const where: any = {};
+
+    if (status) {
+      const statusMap: Record<string, number> = {
+        pending: 1,
+        processing: 2,
+        preparing: 3,
+        ready: 4,
+        completed: 5,
+        cancelled: 6,
+        unpaid: 7,
+      };
+
+      const statusId = statusMap[String(status).toLowerCase()];
+      if (statusId) {
+        where.status_id = statusId;
+      }
+    }
+
+    const orders = await prisma.orders.findMany({
+      where,
+      include: {
+        customer: {
+          include: {
+            user: {
+              select: { id: true, email: true }
+            }
+          }
+        },
+        status: true,
+        orderItems: true,
+      },
+      orderBy: { created_at: 'desc' },
+      take: Number(limit),
+      skip: Number(offset),
+    });
+
+    const total = await prisma.orders.count({ where });
+
+    res.json({
+      success: true,
+      data: orders,
+      meta: {
+        total,
+        limit: Number(limit),
+        offset: Number(offset),
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching all orders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch orders',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+/**
+ * Update order status
+ */
+export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const orderId = typeof id === 'string' ? id : String(id);
+    const { status, status_name, statusId } = req.body as {
+      status?: string;
+      status_name?: string;
+      statusId?: number;
+    };
 
-    // ✅ Fix: Ensure id is a string
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid order ID',
+      });
+    }
+
+    let targetStatus = null;
+
+    if (typeof statusId === 'number') {
+      targetStatus = await prisma.orderStatuses.findUnique({ where: { id: statusId } });
+    } else {
+      const statusName = status || status_name;
+      if (statusName) {
+        targetStatus = await prisma.orderStatuses.findFirst({
+          where: { status_name: statusName }
+        });
+      }
+    }
+
+    if (!targetStatus) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid order status',
+      });
+    }
+
+    const updatedOrder = await prisma.orders.update({
+      where: { id: orderId },
+      data: {
+        status_id: targetStatus.id,
+      },
+      include: {
+        status: true,
+        customer: {
+          include: {
+            user: {
+              select: { id: true, email: true }
+            }
+          }
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Order status updated successfully',
+      data: updatedOrder,
+    });
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update order status',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+/**
+ * Get order statistics
+ */
+export const getOrderStats = async (_req: AuthRequest, res: Response) => {
+  try {
+    const orders = await prisma.orders.findMany({
+      include: { status: true }
+    });
+
+    const totalOrders = orders.length;
+    const totalRevenue = orders.reduce((sum, order) => sum + Number(order.total_price), 0);
+
+    const statusBreakdown = orders.reduce((acc: Record<string, number>, order) => {
+      const statusName = order.status?.status_name || 'Unknown';
+      acc[statusName] = (acc[statusName] || 0) + 1;
+      return acc;
+    }, {});
+
+    res.json({
+      success: true,
+      data: {
+        totalOrders,
+        totalRevenue,
+        statusBreakdown,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching order stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch order statistics',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+/**
+ * Cancel order (User or Admin)
+ */
+export const cancelOrder = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
     const orderId = typeof id === 'string' ? id : String(id);
 
     if (!orderId) {
@@ -266,75 +681,111 @@ export const cancelOrder = async (req: Request, res: Response) => {
       });
     }
 
+    const isAdmin = req.user?.role?.role_name === 'Admin';
+
     const order = await prisma.orders.findUnique({
       where: { id: orderId },
       include: {
-        status: {
-          select: {
-            id: true,
-            status_name: true,
-          },
-        },
         orderItems: true,
-      },
+        status: true
+      }
     });
 
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: 'Order not found',
+        message: 'Order not found'
       });
     }
 
-    // ✅ Fix: Access status_name through the status relation
-    const statusName = order.status?.status_name || 'unknown';
+    // Check if user can cancel this order
+    const isOwner = order.customer_id === req.user?.userId;
 
-    // Check if order is pending (status_id = 1)
-    if (order.status_id !== 1) {
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to cancel this order'
+      });
+    }
+
+    // Check if order can be cancelled
+    const cancellableStatuses = ['Pending', 'Unpaid', 'Preparing'];
+    if (!cancellableStatuses.includes(order.status.status_name)) {
       return res.status(400).json({
         success: false,
-        message: `Cannot cancel order with status: ${statusName}`,
+        message: `Order cannot be cancelled in "${order.status.status_name}" status`
       });
     }
 
-    // In a real implementation, you would restore stock here
-    const canceledOrder = await prisma.orders.update({
-      where: { id: orderId },
-      data: {
-        status_id: 3, // 3 = 'cancelled'
-      },
-      include: {
-        status: {
-          select: {
-            id: true,
-            status_name: true,
-          },
-        },
-        customer: {
-          select: {
-            id: true,
-            full_name: true,
-            phone: true,
-          },
-        },
-        orderItems: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                price: true,
-              },
-            },
-          },
-        },
-      },
+    // Get cancelled status
+    const cancelledStatus = await prisma.orderStatuses.findFirst({
+      where: { status_name: 'Cancelled' }
     });
+
+    if (!cancelledStatus) {
+      throw new Error('Cancelled status not found');
+    }
+
+    // Update order status and restore stock
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedOrder = await tx.orders.update({
+        where: { id: orderId },
+        data: {
+          status_id: cancelledStatus.id
+        },
+        include: {
+          customer: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                }
+              }
+            }
+          },
+          status: true,
+          orderItems: {
+            include: {
+              product: true
+            }
+          },
+          payment: true
+        }
+      });
+
+      // Restore stock
+      for (const item of order.orderItems) {
+        await tx.products.update({
+          where: { id: item.product_id },
+          data: {
+            stock_quantity: {
+              increment: item.quantity
+            }
+          }
+        });
+      }
+
+      return updatedOrder;
+    }, {
+      timeout: 15000
+    });
+
+    // Create notification
+    if (order.customer_id) {
+      await prisma.notifications.create({
+        data: {
+          user_id: order.customer_id,
+          message: `Order #${order.id.slice(0, 8)} has been cancelled`,
+          trigger_type: 'Order_Update'
+        }
+      });
+    }
 
     res.json({
       success: true,
       message: 'Order cancelled successfully',
-      data: canceledOrder,
+      data: result
     });
   } catch (error) {
     console.error('Error cancelling order:', error);
@@ -343,39 +794,5 @@ export const cancelOrder = async (req: Request, res: Response) => {
       message: 'Failed to cancel order',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-  }
-};
-
-export const updateOrderStatus = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { status_id } = req.body; 
-
-    // 1. Update the order status
-    const updatedOrder = await prisma.orders.update({
-      where: { id: String(id) }, 
-      data: { status_id: Number(status_id) },
-    });
-
-    // 2. Create a notification for the user
-    const profile = await prisma.customerProfiles.findUnique({
-      where: { id: updatedOrder.customer_id as string }
-    });
-
-    if (profile) {
-      await prisma.notifications.create({
-        data: {
-          user_id: profile.user_id,
-          message: `Your order status has been updated to status ID: ${status_id}`,
-          trigger_type: 'ORDER_STATUS_UPDATE', 
-          is_read: false,
-        },
-      });
-    }
-
-    res.json({ success: true, data: updatedOrder });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Failed to update status" });
   }
 };
