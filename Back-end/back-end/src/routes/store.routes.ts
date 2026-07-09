@@ -19,9 +19,11 @@ import {
   getAllOrders,
   updateOrderStatus,
   cancelOrder,
-  getOrderStats,
+  getOrderStats, 
 } from '../controllers/orders.js';
 import { authenticate, adminAuth } from '../middleware/auth.js';
+
+
 
 const router = express.Router();
 
@@ -57,13 +59,15 @@ router.get('/categories', getCategories);
 // PROTECTED ROUTES (Authentication Required)
 // ============================================
 // Orders - User routes
+
+router.get('/orders/:id', authenticate, getOrderById);
+
 router.post('/orders', authenticate, createOrder);
 router.get('/orders/my-orders', authenticate, getMyOrders);
-router.get('/orders/:id', authenticate, getOrderById);
 router.put('/orders/:id/cancel', authenticate, cancelOrder);
-
-// Customer orders (with authorization check)
+router.patch('/orders/:id/status', authenticate, updateOrderStatus); 
 router.get('/orders/customer/:customerId', authenticate, getCustomerOrders);
+
 
 // ============================================
 // ADMIN ONLY ROUTES
