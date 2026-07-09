@@ -103,7 +103,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    // FIX: Fetch the profile ID that links to the Orders table
+    // Fetch the profile ID that links to the Orders table
     const profile = await prisma.customerProfiles.findUnique({
       where: { user_id: userId }
     });
@@ -165,7 +165,9 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
   }
 };
 
-
+/**
+ * Get a single order by ID
+ */
 export const getOrderById = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -231,9 +233,13 @@ export const getOrderById = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Check authorization - only admin or order owner can view
+    // ✅ FIXED: Fetch customer profile to accurately map profile ID to ownership check
+    const profile = await prisma.customerProfiles.findUnique({
+      where: { user_id: req.user?.userId }
+    });
+
     const isAdmin = req.user?.role?.role_name === 'Admin';
-    const isOwner = order.customer_id === req.user?.userId;
+    const isOwner = profile && order.customer_id === profile.id;
 
     if (!isAdmin && !isOwner) {
       return res.status(403).json({
@@ -257,7 +263,7 @@ export const getOrderById = async (req: AuthRequest, res: Response) => {
 };
 
 /**
- * Get customer orders with filtering
+ * Get customer orders with filtering (Generic Endpoint)
  */
 export const getCustomerOrders = async (req: AuthRequest, res: Response) => {
   try {
@@ -273,9 +279,13 @@ export const getCustomerOrders = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Check authorization - only admin or the customer themselves can view
+    // ✅ FIXED: Map the authenticated user to their profile id to correctly match ownership parameters
+    const profile = await prisma.customerProfiles.findUnique({
+      where: { user_id: req.user?.userId }
+    });
+
     const isAdmin = req.user?.role?.role_name === 'Admin';
-    const isOwner = customerIdStr === req.user?.userId;
+    const isOwner = profile && customerIdStr === profile.id;
 
     if (!isAdmin && !isOwner) {
       return res.status(403).json({
@@ -288,7 +298,6 @@ export const getCustomerOrders = async (req: AuthRequest, res: Response) => {
       customer_id: customerIdStr,
     };
 
-    // If status filter is provided
     if (status) {
       const statusMap: Record<string, number> = {
         'pending': 1,
@@ -364,8 +373,15 @@ export const getCustomerOrders = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// ============================================================
+// 🟢 DELIVERABLE 1: CUSTOMER SIDE - GET /api/orders/my-orders
+// ============================================================
 /**
  * Get orders for the authenticated customer
+ * ✅ Sorted by created_at descending
+ * ✅ Uses authenticated userId mapped to customerProfile id
+ * ✅ Supports status filter
+ * ✅ Supports pagination (limit, offset)
  */
 export const getMyOrders = async (req: AuthRequest, res: Response) => {
   try {
@@ -378,6 +394,8 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    const { limit = 10, offset = 0, status } = req.query;
+
     const customerProfile = await prisma.customerProfiles.findFirst({
       where: { user_id: userId }
     });
@@ -386,10 +404,52 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
       ? { customer_id: customerProfile.id }
       : { customer_id: userId };
 
+    if (status) {
+      const statusMap: Record<string, number> = {
+        'pending': 1,
+        'unpaid': 7,
+        'processing': 2,
+        'preparing': 3,
+        'ready': 4,
+        'completed': 5,
+        'cancelled': 6,
+      };
+      
+      let statusId = statusMap[status as string];
+      
+      if (!statusId) {
+        const statusRecord = await prisma.orderStatuses.findFirst({
+          where: { 
+            status_name: {
+              equals: status as string,
+              mode: 'insensitive'
+            }
+          }
+        });
+        if (statusRecord) {
+          statusId = statusRecord.id;
+        }
+      }
+      
+      if (statusId) {
+        where.status_id = statusId;
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid status: ${status}`
+        });
+      }
+    }
+
     const orders = await prisma.orders.findMany({
       where,
       include: {
-        status: true,
+        status: {
+          select: {
+            id: true,
+            status_name: true,
+          },
+        },
         orderItems: {
           include: {
             product: {
@@ -401,65 +461,20 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
               }
             }
           }
+        },
+        payment: {
+          select: {
+            id: true,
+            amount: true,
+            payment_status: true,
+            payment_method: true,
+            paid_at: true,
+          }
         }
       },
-      orderBy: { created_at: 'desc' }
-    });
-
-    res.json({
-      success: true,
-      data: orders,
-    });
-  } catch (error) {
-    console.error('Error fetching my orders:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch your orders',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-};
-
-/**
- * Get all orders for admins
- */
-export const getAllOrders = async (req: AuthRequest, res: Response) => {
-  try {
-    const { limit = 10, offset = 0, status } = req.query;
-
-    const where: any = {};
-
-    if (status) {
-      const statusMap: Record<string, number> = {
-        pending: 1,
-        processing: 2,
-        preparing: 3,
-        ready: 4,
-        completed: 5,
-        cancelled: 6,
-        unpaid: 7,
-      };
-
-      const statusId = statusMap[String(status).toLowerCase()];
-      if (statusId) {
-        where.status_id = statusId;
-      }
-    }
-
-    const orders = await prisma.orders.findMany({
-      where,
-      include: {
-        customer: {
-          include: {
-            user: {
-              select: { id: true, email: true }
-            }
-          }
-        },
-        status: true,
-        orderItems: true,
+      orderBy: { 
+        created_at: 'desc' 
       },
-      orderBy: { created_at: 'desc' },
       take: Number(limit),
       skip: Number(offset),
     });
@@ -473,7 +488,196 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
         total,
         limit: Number(limit),
         offset: Number(offset),
-      },
+        hasMore: Number(offset) + Number(limit) < total
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching my orders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch your orders',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+// ============================================================
+// 🟢 DELIVERABLE 2: ADMIN SIDE - GET /api/admin/orders
+// ============================================================
+/**
+ * Get all orders for admins with advanced filtering
+ * ✅ Filter by status (e.g., /api/admin/orders?status=Pending)
+ * ✅ Filter by date (e.g., /api/admin/orders?date=2026-07-09)
+ * ✅ Dynamic Prisma 'where' clause handling query parameters
+ */
+export const getAllOrders = async (req: AuthRequest, res: Response) => {
+  try {
+    const { 
+      limit = 20, 
+      offset = 0, 
+      status, 
+      date,                                  
+      fromDate,                              
+      toDate,                                
+      customer_id,
+      sortBy = 'created_at',
+      sortOrder = 'desc'
+    } = req.query;
+
+    if (req.user?.role?.role_name !== 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const where: any = {};
+
+    // Dynamic Filter: Status Name
+    if (status) {
+      const statusRecord = await prisma.orderStatuses.findFirst({
+        where: {
+          status_name: {
+            equals: status as string,
+            mode: 'insensitive'
+          }
+        }
+      });
+      
+      if (statusRecord) {
+        where.status_id = statusRecord.id;
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid status: ${status}.`
+        });
+      }
+    }
+
+    // Dynamic Filter: Specific Day Window
+    if (date) {
+      const dateObj = new Date(date as string);
+      if (isNaN(dateObj.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid date format. Use YYYY-MM-DD'
+        });
+      }
+      
+      const startOfDay = new Date(dateObj);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const endOfDay = new Date(dateObj);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      where.created_at = {
+        gte: startOfDay,
+        lte: endOfDay
+      };
+    }
+
+    // Date range filters
+    if (fromDate) {
+      const fromDateObj = new Date(fromDate as string);
+      if (!isNaN(fromDateObj.getTime())) {
+        where.created_at = { ...where.created_at, gte: fromDateObj };
+      }
+    }
+
+    if (toDate) {
+      const toDateObj = new Date(toDate as string);
+      if (!isNaN(toDateObj.getTime())) {
+        toDateObj.setHours(23, 59, 59, 999);
+        where.created_at = { ...where.created_at, lte: toDateObj };
+      }
+    }
+
+    if (customer_id) {
+      where.customer_id = customer_id as string;
+    }
+
+    const orderBy: any = {};
+    const validSortFields = ['created_at', 'total_price', 'order_type', 'scheduled_for'];
+    const sortField = validSortFields.includes(sortBy as string) ? sortBy : 'created_at';
+    orderBy[sortField as string] = sortOrder === 'asc' ? 'asc' : 'desc';
+
+    const [orders, total] = await Promise.all([
+      prisma.orders.findMany({
+        where,
+        include: {
+          customer: {
+            include: {
+              user: {
+                select: { id: true, email: true }
+              }
+            }
+          },
+          status: {
+            select: { id: true, status_name: true }
+          },
+          orderItems: {
+            include: {
+              product: {
+                include: {
+                  category: { select: { id: true, category_name: true } }
+                }
+              }
+            }
+          },
+          payment: {
+            select: {
+              id: true,
+              amount: true,
+              payment_method: true,
+              payment_status: true,
+              transaction_reference: true,
+              paid_at: true,
+            }
+          }
+        },
+        orderBy,
+        take: Number(limit),
+        skip: Number(offset),
+      }),
+      prisma.orders.count({ where })
+    ]);
+
+    const stats = await prisma.orders.aggregate({
+      where,
+      _count: { id: true },
+      _sum: { total_price: true },
+      _avg: { total_price: true },
+      _min: { total_price: true },
+      _max: { total_price: true }
+    });
+
+    res.json({
+      success: true,
+      data: orders,
+      meta: {
+        total,
+        limit: Number(limit),
+        offset: Number(offset),
+        hasMore: Number(offset) + Number(limit) < total,
+        filters: {
+          status: status || null,
+          date: date || null,
+          fromDate: fromDate || null,
+          toDate: toDate || null,
+          customer_id: customer_id || null,
+        },
+        sorting: {
+          sortBy: sortField,
+          sortOrder: sortOrder
+        },
+        summary: {
+          totalOrders: stats._count.id || 0,
+          totalRevenue: Number(stats._sum.total_price) || 0,
+          averageOrderValue: Number(stats._avg.total_price) || 0,
+          minOrderValue: Number(stats._min.total_price) || 0,
+          maxOrderValue: Number(stats._max.total_price) || 0
+        }
+      }
     });
   } catch (error) {
     console.error('Error fetching all orders:', error);
@@ -534,9 +738,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
         status: true,
         customer: {
           include: {
-            user: {
-              select: { id: true, email: true }
-            }
+            user: { select: { id: true, email: true } }
           }
         },
       },
@@ -605,7 +807,6 @@ export const cancelOrder = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ success: false, message: 'Invalid request' });
     }
 
-    // 1. Fetch order and include status
     const order = await prisma.orders.findUnique({
       where: { id: id as string },
       include: { orderItems: true, status: true }
@@ -613,7 +814,7 @@ export const cancelOrder = async (req: AuthRequest, res: Response) => {
 
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
-    // 2. Fetch the profile to verify ownership (Mismatched IDs fix)
+    // ✅ FIXED: Fetch user profile to match profile.id with order.customer_id
     const profile = await prisma.customerProfiles.findUnique({
       where: { user_id: userId }
     });
@@ -625,7 +826,6 @@ export const cancelOrder = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ success: false, message: 'You do not have permission to cancel this order' });
     }
 
-    // 3. Check status
     const cancellableStatuses = ['Pending', 'Unpaid', 'Preparing'];
     if (!cancellableStatuses.includes(order.status.status_name)) {
       return res.status(400).json({ success: false, message: `Cannot cancel in "${order.status.status_name}"` });
@@ -634,7 +834,6 @@ export const cancelOrder = async (req: AuthRequest, res: Response) => {
     const cancelledStatus = await prisma.orderStatuses.findFirst({ where: { status_name: 'Cancelled' } });
     if (!cancelledStatus) throw new Error('Status "Cancelled" not found');
 
-    // 4. Perform transaction
     await prisma.$transaction(async (tx) => {
       await tx.orders.update({
         where: { id: id as string },
@@ -648,7 +847,6 @@ export const cancelOrder = async (req: AuthRequest, res: Response) => {
         });
       }
 
-      // 5. Create Notification using the USER_ID (required by model)
       await tx.notifications.create({
         data: {
           user_id: userId, 
