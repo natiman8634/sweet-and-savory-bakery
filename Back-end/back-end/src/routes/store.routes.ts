@@ -23,8 +23,6 @@ import {
 } from '../controllers/orders.js';
 import { authenticate, adminAuth } from '../middleware/auth.js';
 
-
-
 const router = express.Router();
 
 // ============================================
@@ -58,16 +56,14 @@ router.get('/categories', getCategories);
 // ============================================
 // PROTECTED ROUTES (Authentication Required)
 // ============================================
-// Orders - User routes
-
-router.get('/orders/:id', authenticate, getOrderById);
-
+// Orders - User routes (specific routes first)
 router.post('/orders', authenticate, createOrder);
 router.get('/orders/my-orders', authenticate, getMyOrders);
 router.put('/orders/:id/cancel', authenticate, cancelOrder);
-router.patch('/orders/:id/status', authenticate, updateOrderStatus); 
 router.get('/orders/customer/:customerId', authenticate, getCustomerOrders);
 
+// ⚠️ IMPORTANT: This must come LAST to avoid conflict with /my-orders and /customer/:customerId
+router.get('/orders/:id', authenticate, getOrderById);
 
 // ============================================
 // ADMIN ONLY ROUTES
@@ -81,9 +77,9 @@ router.patch('/admin/products/:id/toggle-availability', adminAuth, toggleProduct
 router.post('/admin/products/bulk-update', adminAuth, bulkUpdateProducts);
 router.get('/admin/products/low-stock/report', adminAuth, getLowStockProducts);
 
-// Order Management
+// Order Management (Admin only)
 router.get('/admin/orders', adminAuth, getAllOrders);
-router.patch('/admin/orders/:id/status', adminAuth, updateOrderStatus);
+router.patch('/admin/orders/:id/status', adminAuth, updateOrderStatus); // ✅ Only admin can update status
 router.get('/admin/orders/stats', adminAuth, getOrderStats);
 
 // ============================================
