@@ -1,6 +1,6 @@
 # Cloude Code ToolBox — MCP & Skills awareness
 
-_Generated: 2026-07-10T09:04:49.063Z_
+_Generated: 2026-07-10T12:15:39.694Z_
 
 ## How to use this report
 
@@ -15,7 +15,7 @@ _Generated: 2026-07-10T09:04:49.063Z_
 
 Workspace `mcp.json` _(folder: sweet-and-savory-bakery)_
 
-- **c:\Users\PC_1\sweet-and-savory-bakery\.mcp.json** — _File missing_
+- **c:\Users\PC_1\OneDrive\Documents\sweet-and-savory-bakery\.mcp.json** — _File missing_
 
 _No active workspace servers in mcp.json._
 
