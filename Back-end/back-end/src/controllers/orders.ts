@@ -689,6 +689,422 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// ============================================================
+// 🟢 TASK 1: ADVANCED STATISTICS - Updated getOrderStats
+// ============================================================
+
+/**
+ * Helper: Get revenue breakdown by day for the last N days
+ */
+const getRevenueByDay = async (days: number = 7) => {
+  const result = [];
+  
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    date.setHours(0, 0, 0, 0);
+    
+    const nextDate = new Date(date);
+    nextDate.setDate(nextDate.getDate() + 1);
+    
+    const revenue = await prisma.orders.aggregate({
+      where: {
+        created_at: {
+          gte: date,
+          lt: nextDate
+        },
+        status: {
+          status_name: {
+            notIn: ['Cancelled', 'Unpaid']
+          }
+        }
+      },
+      _sum: {
+        total_price: true
+      }
+    });
+
+    const ordersCount = await prisma.orders.count({
+      where: {
+        created_at: {
+          gte: date,
+          lt: nextDate
+        }
+      }
+    });
+
+    result.push({
+      date: date.toISOString().split('T')[0],
+      day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      revenue: revenue._sum.total_price || 0,
+      ordersCount
+    });
+  }
+  
+  return result;
+};
+
+/**
+ * Helper: Get top N most frequently ordered products
+ */
+const getTopProducts = async (limit: number = 5) => {
+  const topProducts = await prisma.orderItems.groupBy({
+    by: ['product_id'],
+    _sum: {
+      quantity: true
+    },
+    orderBy: {
+      _sum: {
+        quantity: 'desc'
+      }
+    },
+    take: limit
+  });
+
+  // Get product details for each
+  const productIds = topProducts.map(item => item.product_id);
+  const products = await prisma.products.findMany({
+    where: {
+      id: {
+        in: productIds
+      }
+    },
+    include: {
+      category: {
+        select: {
+          id: true,
+          category_name: true
+        }
+      }
+    }
+  });
+
+  // Map products with their order counts
+  return topProducts.map(item => {
+    const product = products.find(p => p.id === item.product_id);
+    return {
+      product_id: item.product_id,
+      name: product?.name || 'Unknown',
+      category: product?.category?.category_name || 'Uncategorized',
+      total_ordered: item._sum.quantity || 0,
+      price: product?.price || 0,
+      image_url: product?.image_url || '',
+      revenue: Number(product?.price || 0) * (item._sum.quantity || 0)
+    };
+  });
+};
+
+/**
+ * Helper: Get customer statistics
+ */
+const getCustomerStats = async (dateFilter: any) => {
+  // Total unique customers who placed orders
+  const totalCustomers = await prisma.orders.groupBy({
+    by: ['customer_id'],
+    where: {
+      created_at: dateFilter,
+      customer_id: {
+        not: null
+      }
+    }
+  });
+
+  // Customers with more than 1 order (returning)
+  const returningCustomers = await prisma.orders.groupBy({
+    by: ['customer_id'],
+    where: {
+      created_at: dateFilter,
+      customer_id: {
+        not: null
+      }
+    },
+    having: {
+      customer_id: {
+        _count: {
+          gt: 1
+        }
+      }
+    }
+  });
+
+  return {
+    totalCustomers: totalCustomers.length,
+    returningCustomers: returningCustomers.length,
+    newCustomers: totalCustomers.length - returningCustomers.length
+  };
+};
+
+/**
+ * 🟢 TASK 1: Get advanced order statistics with revenue breakdown and top products
+ */
+export const getOrderStats = async (req: AuthRequest, res: Response) => {
+  try {
+    // Check if user is admin
+    if (req.user?.role?.role_name !== 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const { period = 'week' } = req.query;
+    let dateFilter: any = {};
+    const now = new Date();
+
+    switch (period) {
+      case 'today':
+        dateFilter = {
+          gte: new Date(now.setHours(0, 0, 0, 0))
+        };
+        break;
+      case 'week':
+        const weekStart = new Date(now);
+        weekStart.setDate(weekStart.getDate() - 7);
+        dateFilter = {
+          gte: weekStart
+        };
+        break;
+      case 'month':
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        dateFilter = {
+          gte: monthStart
+        };
+        break;
+      default:
+        dateFilter = {
+          gte: new Date(now.setHours(0, 0, 0, 0))
+        };
+    }
+
+    // 🟢 1. Revenue by Day (Last 7 days)
+    const revenueByDay = await getRevenueByDay(7);
+
+    // 🟢 2. Top 5 Products
+    const topProducts = await getTopProducts(5);
+
+    // 3. Basic stats
+    const [totalOrders, totalRevenue, statusCounts] = await Promise.all([
+      prisma.orders.count({
+        where: { created_at: dateFilter }
+      }),
+      prisma.orders.aggregate({
+        where: {
+          created_at: dateFilter,
+          status: {
+            status_name: {
+              notIn: ['Cancelled', 'Unpaid']
+            }
+          }
+        },
+        _sum: {
+          total_price: true
+        }
+      }),
+      prisma.orderStatuses.findMany({
+        include: {
+          orders: {
+            where: { created_at: dateFilter }
+          }
+        }
+      })
+    ]);
+
+    const statusBreakdown = statusCounts.map(status => ({
+      status: status.status_name,
+      count: status.orders.length
+    }));
+
+    // 4. Customer statistics
+    const customerStats = await getCustomerStats(dateFilter);
+
+    // ✅ FIX: Safely handle null/undefined values with proper type conversion
+    const totalRevenueValue = Number(totalRevenue._sum.total_price || 0);
+    
+    // ✅ FIX: Calculate average order value safely with type conversion
+    const averageOrderValue = totalOrders > 0 
+      ? Number(totalRevenueValue) / totalOrders 
+      : 0;
+
+    res.json({
+      success: true,
+      data: {
+        period,
+        totalOrders,
+        totalRevenue: totalRevenueValue,
+        statusBreakdown,
+        // 🟢 NEW: Revenue by day breakdown
+        revenueByDay,
+        // 🟢 NEW: Top 5 products
+        topProducts,
+        // 🟢 NEW: Customer statistics
+        customerStats,
+        // 🟢 NEW: Summary
+        summary: {
+          averageOrderValue,
+          totalCustomers: customerStats.totalCustomers,
+          returningCustomers: customerStats.returningCustomers
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching order stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch order statistics',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+// ============================================================
+// 🟢 TASK 2: EXPORT FUNCTIONALITY - CSV Export
+// ============================================================
+
+/**
+ * Export orders as CSV
+ * GET /api/admin/orders/export?fromDate=2026-07-01&toDate=2026-07-09
+ */
+export const exportOrdersCSV = async (req: AuthRequest, res: Response) => {
+  try {
+    // Check if user is admin
+    if (req.user?.role?.role_name !== 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const { fromDate, toDate } = req.query;
+
+    // Validate date parameters
+    if (!fromDate || !toDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Both fromDate and toDate are required (YYYY-MM-DD)'
+      });
+    }
+
+    const fromDateObj = new Date(fromDate as string);
+    const toDateObj = new Date(toDate as string);
+
+    if (isNaN(fromDateObj.getTime()) || isNaN(toDateObj.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid date format. Use YYYY-MM-DD'
+      });
+    }
+
+    // Set to end of day for toDate
+    toDateObj.setHours(23, 59, 59, 999);
+
+    // Fetch orders within date range
+    const orders = await prisma.orders.findMany({
+      where: {
+        created_at: {
+          gte: fromDateObj,
+          lte: toDateObj
+        }
+      },
+      include: {
+        customer: {
+          include: {
+            user: {
+              select: {
+                email: true
+              }
+            }
+          }
+        },
+        status: true,
+        orderItems: {
+          include: {
+            product: true
+          }
+        },
+        payment: true
+      },
+      orderBy: {
+        created_at: 'desc'
+      }
+    });
+
+    if (orders.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No orders found in the specified date range'
+      });
+    }
+
+    // Generate CSV content
+    const csvHeaders = [
+      'Order ID',
+      'Date',
+      'Customer Email',
+      'Customer Name',
+      'Order Type',
+      'Status',
+      'Total Price',
+      'Payment Method',
+      'Payment Status',
+      'Items Count',
+      'Products'
+    ];
+
+    const csvRows = orders.map(order => {
+      const customerName = order.customer?.full_name || 'Guest';
+      const customerEmail = order.customer?.user?.email || 'guest@example.com';
+      const products = order.orderItems.map(item => 
+        `${item.product.name} (x${item.quantity})`
+      ).join('; ');
+      const itemsCount = order.orderItems.reduce((sum, item) => sum + item.quantity, 0);
+
+      return [
+        order.id.slice(0, 8),
+        order.created_at.toISOString().split('T')[0],
+        customerEmail,
+        customerName,
+        order.order_type,
+        order.status?.status_name || 'Unknown',
+        order.total_price.toString(),
+        order.payment?.payment_method || 'N/A',
+        order.payment?.payment_status || 'N/A',
+        itemsCount,
+        products
+      ];
+    });
+
+    // Build CSV string
+    let csvContent = csvHeaders.join(',') + '\n';
+    csvRows.forEach(row => {
+      // Escape quotes and wrap fields with commas in quotes
+      const escapedRow = row.map(field => {
+        if (typeof field === 'string' && (field.includes(',') || field.includes('"') || field.includes('\n'))) {
+          return `"${field.replace(/"/g, '""')}"`;
+        }
+        return field;
+      });
+      csvContent += escapedRow.join(',') + '\n';
+    });
+
+    // Set response headers for CSV download
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=orders_${fromDate}_to_${toDate}.csv`);
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Pragma', 'no-cache');
+
+    // Send CSV
+    res.status(200).send(csvContent);
+
+  } catch (error) {
+    console.error('Error exporting orders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export orders',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
 /**
  * Update order status
  */
@@ -754,42 +1170,6 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Failed to update order status',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-};
-
-/**
- * Get order statistics
- */
-export const getOrderStats = async (_req: AuthRequest, res: Response) => {
-  try {
-    const orders = await prisma.orders.findMany({
-      include: { status: true }
-    });
-
-    const totalOrders = orders.length;
-    const totalRevenue = orders.reduce((sum, order) => sum + Number(order.total_price), 0);
-
-    const statusBreakdown = orders.reduce((acc: Record<string, number>, order) => {
-      const statusName = order.status?.status_name || 'Unknown';
-      acc[statusName] = (acc[statusName] || 0) + 1;
-      return acc;
-    }, {});
-
-    res.json({
-      success: true,
-      data: {
-        totalOrders,
-        totalRevenue,
-        statusBreakdown,
-      },
-    });
-  } catch (error) {
-    console.error('Error fetching order stats:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch order statistics',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
