@@ -1,0 +1,18 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "files.watcherExclude": {
+    "**/node_modules/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true
+  },
+  "files.exclude": {
+    "**/node_modules": false
+  },
+  "vscode-webhint.enable": false,
+  "microsoft-edge-tools.webhint": false,
+  "problems.decorations.enabled": true,
+  "typescript.validate.enable": true,
+  "css.validate": true
+}

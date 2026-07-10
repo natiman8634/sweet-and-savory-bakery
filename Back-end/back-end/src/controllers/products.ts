@@ -1,5 +1,31 @@
 import type { Request, Response } from 'express';
-import prisma from '../lib/prisma.js';  // ✅ Changed from .ts to .js (consistent with orders.ts)
+import prisma from '../lib/prisma.js';
+import NodeCache from 'node-cache';
+
+// ============================================================
+// 🟢 TASK 3: PERFORMANCE OPTIMIZATION - Caching
+// ============================================================
+
+// Initialize cache with 5 minutes TTL (300 seconds)
+const cache = new NodeCache({ 
+  stdTTL: 300,
+  checkperiod: 60, // Check for expired entries every 60 seconds
+  useClones: false // Don't clone objects for better performance
+});
+
+// Helper function to get cache key
+const getCacheKey = (prefix: string, params: any = {}) => {
+  // Sort params to ensure consistent key generation
+  const sortedParams = Object.keys(params)
+    .sort()
+    .reduce((acc: any, key) => {
+      if (params[key] !== undefined && params[key] !== null) {
+        acc[key] = params[key];
+      }
+      return acc;
+    }, {});
+  return `${prefix}:${JSON.stringify(sortedParams)}`;
+};
 
 // Extend Request type for authenticated requests
 interface AuthRequest extends Request {
@@ -14,7 +40,7 @@ interface AuthRequest extends Request {
   };
 }
 
-// ✅ NEW: Helper function to safely get string from query params (moved from inline)
+// Helper function to safely get string from query params
 const getStringParam = (param: any): string | undefined => {
   if (typeof param === 'string') {
     return param;
@@ -25,7 +51,7 @@ const getStringParam = (param: any): string | undefined => {
   return undefined;
 };
 
-// ✅ NEW: Helper function to safely get number from query params
+// Helper function to safely get number from query params
 const getNumberParam = (param: any): number | undefined => {
   const str = getStringParam(param);
   if (str) {
@@ -35,38 +61,48 @@ const getNumberParam = (param: any): number | undefined => {
   return undefined;
 };
 
-// ✅ NEW: Helper function to safely get boolean from query params
+// Helper function to safely get boolean from query params
 const getBooleanParam = (param: any): boolean => {
   const str = getStringParam(param);
   return str === 'true' || str === '1';
 };
 
 // ============================================================
-// PUBLIC ROUTES
+// PUBLIC ROUTES (WITH CACHING)
 // ============================================================
 
 /**
- * Get products with filtering (Public)
+ * Get products with filtering (Public) - WITH CACHING
+ * 🟢 Cached for 5 minutes to reduce database load
  */
 export const getProducts = async (req: Request, res: Response) => {
   try {
-    // ✅ CHANGED: Using helper functions instead of direct parsing
     const category = getNumberParam(req.query.category);
     const search = getStringParam(req.query.search);
     const minPrice = getNumberParam(req.query.minPrice);
     const maxPrice = getNumberParam(req.query.maxPrice);
+
+    // Build cache key based on query parameters
+    const cacheKey = getCacheKey('products', { category, search, minPrice, maxPrice });
+    
+    // 🟢 Check cache first
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      console.log(`✅ Cache hit for: ${cacheKey}`);
+      return res.json(cachedData);
+    }
+
+    console.log(`🔄 Cache miss for: ${cacheKey}, fetching from database...`);
 
     // Build filter conditions
     const where: any = {
       is_available: true,
     };
 
-    // Filter by category
     if (category) {
       where.category_id = category;
     }
 
-    // Search by name or description
     if (search && search.trim()) {
       where.OR = [
         { name: { contains: search.trim(), mode: 'insensitive' } },
@@ -74,7 +110,6 @@ export const getProducts = async (req: Request, res: Response) => {
       ];
     }
 
-    // Filter by price range
     if (minPrice || maxPrice) {
       where.price = {};
       if (minPrice) {
@@ -100,11 +135,13 @@ export const getProducts = async (req: Request, res: Response) => {
       ],
     });
 
-    res.json({
+    const response = {
       success: true,
       data: products,
       meta: {
         total: products.length,
+        cached: false,
+        timestamp: new Date().toISOString(),
         filters: {
           category: category || null,
           search: search || null,
@@ -112,7 +149,13 @@ export const getProducts = async (req: Request, res: Response) => {
           maxPrice: maxPrice || null,
         },
       },
-    });
+    };
+
+    // 🟢 Store in cache for 5 minutes (300 seconds)
+    cache.set(cacheKey, response);
+    console.log(`✅ Cached response for: ${cacheKey}`);
+
+    res.json(response);
   } catch (error) {
     console.error('Error fetching products:', error);
     res.status(500).json({
@@ -124,10 +167,22 @@ export const getProducts = async (req: Request, res: Response) => {
 };
 
 /**
- * Get categories (Public)
+ * Get categories (Public) - WITH CACHING
+ * 🟢 Cached for 5 minutes to reduce database load
  */
 export const getCategories = async (req: Request, res: Response) => {
   try {
+    const cacheKey = 'categories:all';
+    
+    // 🟢 Check cache first
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      console.log(`✅ Cache hit for: ${cacheKey}`);
+      return res.json(cachedData);
+    }
+
+    console.log(`🔄 Cache miss for: ${cacheKey}, fetching from database...`);
+
     const categories = await prisma.categories.findMany({
       include: {
         products: {
@@ -150,13 +205,21 @@ export const getCategories = async (req: Request, res: Response) => {
       product_count: category.products.length,
     }));
 
-    res.json({
+    const response = {
       success: true,
       data: formattedCategories,
       meta: {
         total: categories.length,
+        cached: false,
+        timestamp: new Date().toISOString(),
       },
-    });
+    };
+
+    // 🟢 Store in cache for 5 minutes (300 seconds)
+    cache.set(cacheKey, response);
+    console.log(`✅ Cached response for: ${cacheKey}`);
+
+    res.json(response);
   } catch (error) {
     console.error('Error fetching categories:', error);
     res.status(500).json({
@@ -231,11 +294,9 @@ export const getProductById = async (req: Request, res: Response) => {
 
 /**
  * Get all products (Admin only - includes unavailable products)
- * ✅ Updated to match order controller patterns
  */
 export const getAllProductsAdmin = async (req: AuthRequest, res: Response) => {
   try {
-    // ✅ CHANGED: Using helper functions
     const category = getNumberParam(req.query.category);
     const search = getStringParam(req.query.search);
     const minPrice = getNumberParam(req.query.minPrice);
@@ -250,12 +311,10 @@ export const getAllProductsAdmin = async (req: AuthRequest, res: Response) => {
       where.is_available = true;
     }
 
-    // Filter by category
     if (category) {
       where.category_id = category;
     }
 
-    // Search by name or description
     if (search && search.trim()) {
       where.OR = [
         { name: { contains: search.trim(), mode: 'insensitive' } },
@@ -263,7 +322,6 @@ export const getAllProductsAdmin = async (req: AuthRequest, res: Response) => {
       ];
     }
 
-    // Filter by price range
     if (minPrice || maxPrice) {
       where.price = {};
       if (minPrice) {
@@ -323,7 +381,6 @@ export const getAllProductsAdmin = async (req: AuthRequest, res: Response) => {
 
 /**
  * Create new product (Admin only)
- * ✅ Added validation and error handling
  */
 export const createProduct = async (req: AuthRequest, res: Response) => {
   try {
@@ -337,7 +394,6 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       is_available = true
     } = req.body;
 
-    // ✅ CHANGED: Better validation with trim()
     if (!name || !name.trim()) {
       return res.status(400).json({
         success: false,
@@ -416,6 +472,10 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       },
     });
 
+    // 🟢 Clear product cache after creating new product
+    clearProductCache();
+    console.log(`🔄 Cache cleared after creating product: ${product.id}`);
+
     res.status(201).json({
       success: true,
       message: 'Product created successfully',
@@ -433,8 +493,8 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
 
 /**
  * Update product (Admin only)
- * ✅ Accepts stock_quantity and is_available (Core Objective 2)
- * ✅ Added audit logging
+ * Accepts stock_quantity and is_available (Core Objective 2)
+ * Added audit logging
  */
 export const updateProduct = async (req: AuthRequest, res: Response) => {
   try {
@@ -470,7 +530,6 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // ✅ CHANGED: Better validation with descriptive messages
     // Validate stock quantity
     if (stock_quantity !== undefined && stock_quantity < 0) {
       return res.status(400).json({
@@ -490,12 +549,12 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
     // Build update data
     const updateData: any = {};
 
-    // ✅ KEY: Update stock quantity (Core Objective 2)
+    // KEY: Update stock quantity (Core Objective 2)
     if (stock_quantity !== undefined) {
       updateData.stock_quantity = stock_quantity;
     }
 
-    // ✅ KEY: Update availability (Core Objective 2)
+    // KEY: Update availability (Core Objective 2)
     if (is_available !== undefined) {
       updateData.is_available = is_available;
     }
@@ -544,7 +603,11 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    // ✅ NEW: Audit logging (matching order controller pattern)
+    // 🟢 Clear product cache after updating
+    clearProductCache();
+    console.log(`🔄 Cache cleared after updating product: ${productId}`);
+
+    // Audit logging
     console.log(`Product ${productId} updated by ${req.user?.email || 'Admin'}:`, {
       changes: updateData,
       timestamp: new Date().toISOString()
@@ -567,7 +630,6 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
 
 /**
  * Toggle product availability (Admin only)
- * ✅ Quick toggle for is_available
  */
 export const toggleProductAvailability = async (req: AuthRequest, res: Response) => {
   try {
@@ -607,6 +669,9 @@ export const toggleProductAvailability = async (req: AuthRequest, res: Response)
       },
     });
 
+    // 🟢 Clear product cache after toggling availability
+    clearProductCache();
+
     res.json({
       success: true,
       message: `Product ${updatedProduct.is_available ? 'activated' : 'deactivated'} successfully`,
@@ -624,7 +689,6 @@ export const toggleProductAvailability = async (req: AuthRequest, res: Response)
 
 /**
  * Bulk update products (Admin only)
- * ✅ Added better error handling and logging
  */
 export const bulkUpdateProducts = async (req: AuthRequest, res: Response) => {
   try {
@@ -637,7 +701,6 @@ export const bulkUpdateProducts = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Validate max updates
     if (updates.length > 100) {
       return res.status(400).json({
         success: false,
@@ -658,7 +721,6 @@ export const bulkUpdateProducts = async (req: AuthRequest, res: Response) => {
           continue;
         }
 
-        // Check if product exists
         const product = await prisma.products.findUnique({
           where: { id: productId }
         });
@@ -668,7 +730,6 @@ export const bulkUpdateProducts = async (req: AuthRequest, res: Response) => {
           continue;
         }
 
-        // Validate stock quantity
         if (updateData.stock_quantity !== undefined && updateData.stock_quantity < 0) {
           errors.push({ id: productId, error: 'Stock quantity cannot be negative' });
           continue;
@@ -696,6 +757,9 @@ export const bulkUpdateProducts = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // 🟢 Clear product cache after bulk update
+    clearProductCache();
+
     res.json({
       success: true,
       message: `Updated ${results.length} products, ${errors.length} failed`,
@@ -716,7 +780,6 @@ export const bulkUpdateProducts = async (req: AuthRequest, res: Response) => {
 
 /**
  * Get low stock products (Admin only)
- * ✅ Added better meta data
  */
 export const getLowStockProducts = async (req: AuthRequest, res: Response) => {
   try {
@@ -765,7 +828,7 @@ export const getLowStockProducts = async (req: AuthRequest, res: Response) => {
 
 /**
  * Delete product (Admin only)
- * ✅ Soft delete with order check
+ * Soft delete with order check
  */
 export const deleteProduct = async (req: AuthRequest, res: Response) => {
   try {
@@ -812,6 +875,9 @@ export const deleteProduct = async (req: AuthRequest, res: Response) => {
         },
       });
 
+      // 🟢 Clear product cache after deletion
+      clearProductCache();
+
       return res.json({
         success: true,
         message: 'Product has been deactivated (has existing orders)',
@@ -824,6 +890,9 @@ export const deleteProduct = async (req: AuthRequest, res: Response) => {
       where: { id: productId }
     });
 
+    // 🟢 Clear product cache after deletion
+    clearProductCache();
+
     res.json({
       success: true,
       message: 'Product deleted successfully'
@@ -833,6 +902,111 @@ export const deleteProduct = async (req: AuthRequest, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete product',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+// ============================================================
+// 🟢 TASK 3: CACHE MANAGEMENT FUNCTIONS
+// ============================================================
+
+/**
+ * Helper: Clear all product-related cache
+ */
+const clearProductCache = () => {
+  const keys = cache.keys();
+  const productKeys = keys.filter(key => key.startsWith('products:') || key === 'categories:all');
+  
+  if (productKeys.length > 0) {
+    productKeys.forEach(key => cache.del(key));
+    console.log(`🗑️ Cleared ${productKeys.length} cache entries:`, productKeys);
+  } else {
+    console.log('ℹ️ No cache entries to clear');
+  }
+};
+
+/**
+ * Clear cache (Admin only)
+ * Useful when products are updated
+ */
+export const clearCache = async (req: AuthRequest, res: Response) => {
+  try {
+    // Check if user is admin
+    if (req.user?.role?.role_name !== 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const { key } = req.query;
+    
+    if (key) {
+      // Clear specific cache key
+      const deleted = cache.del(key as string);
+      res.json({
+        success: true,
+        message: `Cache cleared for key: ${key}`,
+        deleted: deleted > 0
+      });
+    } else {
+      // Clear all cache
+      const allKeys = cache.keys();
+      cache.flushAll();
+      res.json({
+        success: true,
+        message: 'All cache cleared successfully',
+        keysCleared: allKeys.length
+      });
+    }
+  } catch (error) {
+    console.error('Error clearing cache:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clear cache',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+/**
+ * Get cache statistics (Admin only)
+ */
+export const getCacheStats = async (req: AuthRequest, res: Response) => {
+  try {
+    // Check if user is admin
+    if (req.user?.role?.role_name !== 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const keys = cache.keys();
+    const stats = cache.getStats();
+    
+    // Group cache keys by type
+    const productKeys = keys.filter(key => key.startsWith('products:'));
+    const categoryKeys = keys.filter(key => key === 'categories:all');
+    
+    res.json({
+      success: true,
+      data: {
+        totalKeys: keys.length,
+        keys: keys,
+        productKeys: productKeys.length,
+        categoryKeys: categoryKeys.length,
+        stats: stats,
+        memoryUsage: process.memoryUsage(),
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching cache stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch cache stats',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
