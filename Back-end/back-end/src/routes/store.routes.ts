@@ -22,6 +22,7 @@ import {
   getOrderStats, 
 } from '../controllers/orders.js';
 import { authenticate, adminAuth } from '../middleware/auth.js';
+import { getNotifications, markNotificationAsRead } from '../controllers/notifications.ts';
 
 const router = express.Router();
 
@@ -61,6 +62,8 @@ router.post('/orders', authenticate, createOrder);
 router.get('/orders/my-orders', authenticate, getMyOrders);
 router.put('/orders/:id/cancel', authenticate, cancelOrder);
 router.get('/orders/customer/:customerId', authenticate, getCustomerOrders);
+router.get('/notifications', authenticate, getNotifications);
+router.patch('/notifications/:id/read', authenticate, markNotificationAsRead);
 
 // ⚠️ IMPORTANT: This must come LAST to avoid conflict with /my-orders and /customer/:customerId
 router.get('/orders/:id', authenticate, getOrderById);
