@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
+import { orderSchema } from '../utils/validators.js';
 
 // Extend Request type for authenticated requests
 interface AuthRequest extends Request {
@@ -94,40 +95,39 @@ const validateOrderItems = async (items: OrderItemInput[]) => {
  */
 export const createOrder = async (req: AuthRequest, res: Response) => {
   try {
-    const { items, order_type, scheduled_for, payment_method } = req.body as OrderInput;
-
-    if (!items?.length || !order_type) {
-      return res.status(400).json({ success: false, message: 'Missing required order fields' });
+    // 1. Validate Input using Zod
+    const validation = orderSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid order data', 
+        errors: validation.error.format() 
+      });
     }
 
+    const { items, order_type, scheduled_for } = validation.data;
     const userId = req.user?.userId;
+
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    // Fetch the profile ID that links to the Orders table
-    const profile = await prisma.customerProfiles.findUnique({
-      where: { user_id: userId }
-    });
+    const profile = await prisma.customerProfiles.findUnique({ where: { user_id: userId } });
+    if (!profile) return res.status(400).json({ success: false, message: 'Customer profile not found' });
 
-    if (!profile) {
-      return res.status(400).json({ success: false, message: 'Customer profile not found' });
-    }
-
-    // 1. Validate items...
+    // 2. Validate availability and stock
     const { validatedItems, validationErrors } = await validateOrderItems(items);
     if (validationErrors.length > 0) return res.status(400).json({ success: false, errors: validationErrors });
 
-    // 2. Calculate totals...
     const totalPrice = validatedItems.reduce((sum, item) => sum + Number(item.subtotal), 0);
 
-    // 4. Create order using profile.id
+    // 3. Database Transaction
     const result = await prisma.$transaction(async (tx) => {
       const order = await tx.orders.create({
         data: {
-          customer_id: profile.id, // Use the profile ID here
+          customer_id: profile.id,
           total_price: totalPrice,
           order_type: order_type,
           scheduled_for: scheduled_for ? new Date(scheduled_for) : new Date(Date.now() + 3600000),
-          status_id: 1, // Ensure this matches your 'Pending' status ID
+          status_id: 1,
           orderItems: {
             create: validatedItems.map((item: any) => ({
               product_id: item.product_id,
@@ -139,7 +139,6 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
         include: { orderItems: true }
       });
 
-      // 5. Deduct stock...
       for (const item of validatedItems) {
         await tx.products.update({
           where: { id: item.product_id },
@@ -149,10 +148,10 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       return order;
     });
 
-    // 7. Notification (Use the USER ID for the notifications table, not the profile ID)
+    // 4. Create Notification
     await prisma.notifications.create({
       data: {
-        user_id: userId, // Keep this as the User ID
+        user_id: userId,
         message: `Order #${result.id.slice(0, 8)} placed successfully.`,
         trigger_type: 'Order_Update'
       }
@@ -160,7 +159,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
 
     res.status(201).json({ success: true, data: result });
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error creating order:', error);
     res.status(500).json({ success: false, message: 'Failed to create order' });
   }
 };
