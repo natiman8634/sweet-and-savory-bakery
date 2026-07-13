@@ -26,8 +26,11 @@ import {
 } from '../controllers/orders.js';
 import { authenticate, adminAuth } from '../middleware/auth.js';
 import { getNotifications, markNotificationAsRead } from '../controllers/notifications.js'; // ✅ Fixed: Changed .ts to .js
+import { auditLogger } from '../middleware/auditLogger.js';
 
 const router = express.Router();
+
+router.use(auditLogger);
 
 // ============================================
 // TEST ROUTE

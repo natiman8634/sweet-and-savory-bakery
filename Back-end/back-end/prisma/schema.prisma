@@ -102,3 +102,12 @@ model Notifications {
   is_read      Boolean @default(false)
   created_at   DateTime @default(now())
 }
+
+model AuditLogs {
+  id         Int      @id @default(autoincrement())
+  user_id    String
+  action     String   // e.g., "UPDATE_ORDER_STATUS"
+  endpoint   String   // e.g., "/api/admin/orders/:id/status"
+  timestamp  DateTime @default(now())
+  details    Json?    // Optional: capture request body or changes
+}
