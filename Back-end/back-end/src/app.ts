@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import authRoutes from './routes/auth.routes.js';
 import storeRoutes from './routes/store.routes.js';
+import { globalLimiter, sensitiveLimiter } from './middleware/rateLimiter.js';
 
 const app = express();
 
@@ -13,6 +14,9 @@ const app = express();
 
 // Security middleware
 app.use(helmet());
+app.use('/api/', globalLimiter);
+app.use('/api/auth/login', sensitiveLimiter);
+app.use('/api/orders', sensitiveLimiter);
 
 // CORS middleware
 app.use(cors({
