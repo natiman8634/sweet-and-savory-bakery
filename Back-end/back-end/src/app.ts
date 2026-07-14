@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import authRoutes from './routes/auth.routes.js';
 import storeRoutes from './routes/store.routes.js';
 import { globalLimiter, sensitiveLimiter } from './middleware/rateLimiter.js';
+import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
@@ -152,6 +153,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     error: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 });
+
+app.use(errorHandler);
 
 // ============================================
 // STARTUP LOGGING

@@ -12,7 +12,7 @@ import {
   deleteProduct,
   clearCache,
   getCacheStats,
-} from '../controllers/products.js';
+ } from '../controllers/products.js';
 import {
   createOrder,
   getOrderById,
@@ -54,6 +54,7 @@ router.get('/test', (req, res) => {
     }
   });
 });
+
 
 // ============================================
 // PUBLIC ROUTES (WITH CACHING 🟢 TASK 3)
