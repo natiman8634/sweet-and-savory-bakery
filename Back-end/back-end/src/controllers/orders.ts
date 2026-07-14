@@ -232,10 +232,11 @@ export const getOrderById = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // ✅ FIXED: Fetch customer profile to accurately map profile ID to ownership check
-    const profile = await prisma.customerProfiles.findUnique({
-      where: { user_id: req.user?.userId }
-    });
+    const profile = await prisma.customerProfiles.findFirst({
+  where: { 
+    user_id: req.user?.userId || '' 
+  }
+});
 
     const isAdmin = req.user?.role?.role_name === 'Admin';
     const isOwner = profile && order.customer_id === profile.id;
@@ -278,7 +279,6 @@ export const getCustomerOrders = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // ✅ FIXED: Map the authenticated user to their profile id to correctly match ownership parameters
     const profile = await prisma.customerProfiles.findUnique({
       where: { user_id: req.user?.userId }
     });
@@ -374,13 +374,14 @@ export const getCustomerOrders = async (req: AuthRequest, res: Response) => {
 
 // ============================================================
 // 🟢 DELIVERABLE 1: CUSTOMER SIDE - GET /api/orders/my-orders
+// 🟢 TASK 9: Added Pagination with page & limit
 // ============================================================
 /**
  * Get orders for the authenticated customer
  * ✅ Sorted by created_at descending
  * ✅ Uses authenticated userId mapped to customerProfile id
  * ✅ Supports status filter
- * ✅ Supports pagination (limit, offset)
+ * ✅ Supports pagination (page & limit) - TASK 9
  */
 export const getMyOrders = async (req: AuthRequest, res: Response) => {
   try {
@@ -393,7 +394,18 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const { limit = 10, offset = 0, status } = req.query;
+    // 🟢 TASK 9: Get pagination parameters
+    const { 
+      limit = 10, 
+      offset = 0, 
+      page = 1,
+      status 
+    } = req.query;
+
+    // 🟢 TASK 9: Calculate pagination values
+    const pageNumber = Math.max(1, Number(page) || 1);
+    const limitNumber = Math.min(50, Math.max(1, Number(limit) || 10));
+    const offsetNumber = (pageNumber - 1) * limitNumber;
 
     const customerProfile = await prisma.customerProfiles.findFirst({
       where: { user_id: userId }
@@ -440,54 +452,68 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    const orders = await prisma.orders.findMany({
-      where,
-      include: {
-        status: {
-          select: {
-            id: true,
-            status_name: true,
+    // 🟢 TASK 9: Get orders with pagination
+    const [orders, total] = await Promise.all([
+      prisma.orders.findMany({
+        where,
+        include: {
+          status: {
+            select: {
+              id: true,
+              status_name: true,
+            },
           },
-        },
-        orderItems: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                price: true,
-                image_url: true,
+          orderItems: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                  image_url: true,
+                }
               }
+            }
+          },
+          payment: {
+            select: {
+              id: true,
+              amount: true,
+              payment_status: true,
+              payment_method: true,
+              paid_at: true,
             }
           }
         },
-        payment: {
-          select: {
-            id: true,
-            amount: true,
-            payment_status: true,
-            payment_method: true,
-            paid_at: true,
-          }
-        }
-      },
-      orderBy: { 
-        created_at: 'desc' 
-      },
-      take: Number(limit),
-      skip: Number(offset),
-    });
+        orderBy: { 
+          created_at: 'desc' 
+        },
+        take: limitNumber,
+        skip: offsetNumber,
+      }),
+      prisma.orders.count({ where })
+    ]);
 
-    const total = await prisma.orders.count({ where });
+    // 🟢 TASK 9: Calculate pagination metadata
+    const totalPages = Math.ceil(total / limitNumber);
+    const currentPage = pageNumber;
+    const hasNextPage = currentPage < totalPages;
+    const hasPreviousPage = currentPage > 1;
 
     res.json({
       success: true,
       data: orders,
       meta: {
-        total,
-        limit: Number(limit),
-        offset: Number(offset),
-        hasMore: Number(offset) + Number(limit) < total
+        pagination: {
+          currentPage,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limitNumber,
+          hasNextPage,
+          hasPreviousPage,
+          nextPage: hasNextPage ? currentPage + 1 : null,
+          previousPage: hasPreviousPage ? currentPage - 1 : null,
+        }
       }
     });
   } catch (error) {
@@ -502,23 +528,30 @@ export const getMyOrders = async (req: AuthRequest, res: Response) => {
 
 // ============================================================
 // 🟢 DELIVERABLE 2: ADMIN SIDE - GET /api/admin/orders
+// 🟢 TASK 9: Pagination with page & limit
+// 🟢 TASK 10: Search by customer name or Order ID
 // ============================================================
 /**
  * Get all orders for admins with advanced filtering
  * ✅ Filter by status (e.g., /api/admin/orders?status=Pending)
  * ✅ Filter by date (e.g., /api/admin/orders?date=2026-07-09)
  * ✅ Dynamic Prisma 'where' clause handling query parameters
+ * ✅ TASK 9: Pagination with page & limit
+ * ✅ TASK 10: Search by customer name or Order ID
  */
 export const getAllOrders = async (req: AuthRequest, res: Response) => {
   try {
+    // 🟢 TASK 9 & 10: Get all query parameters
     const { 
       limit = 20, 
       offset = 0, 
+      page = 1,                    // 🟢 TASK 9: Page number
       status, 
       date,                                  
       fromDate,                              
       toDate,                                
       customer_id,
+      search,                      // 🟢 TASK 10: Search term
       sortBy = 'created_at',
       sortOrder = 'desc'
     } = req.query;
@@ -530,7 +563,50 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // 🟢 TASK 9: Calculate pagination values
+    const pageNumber = Math.max(1, Number(page) || 1);
+    const limitNumber = Math.min(100, Math.max(1, Number(limit) || 20));
+    const offsetNumber = (pageNumber - 1) * limitNumber;
+
     const where: any = {};
+
+    // 🟢 TASK 10: Search by customer name or Order ID
+    if (search && typeof search === 'string' && search.trim()) {
+      const searchTerm = search.trim();
+      
+      // Check if search term looks like an Order ID (UUID)
+      const isOrderId = searchTerm.length >= 8 && searchTerm.match(/^[0-9a-f-]+$/i);
+      
+      if (isOrderId) {
+        // Search by Order ID (partial match)
+        where.id = {
+          contains: searchTerm,
+          mode: 'insensitive'
+        };
+      } else {
+        // Search by customer name or email through the profile
+        where.OR = [
+          {
+            customer: {
+              full_name: {
+                contains: searchTerm,
+                mode: 'insensitive'
+              }
+            }
+          },
+          {
+            customer: {
+              user: {
+                email: {
+                  contains: searchTerm,
+                  mode: 'insensitive'
+                }
+              }
+            }
+          }
+        ];
+      }
+    }
 
     // Dynamic Filter: Status Name
     if (status) {
@@ -600,6 +676,7 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
     const sortField = validSortFields.includes(sortBy as string) ? sortBy : 'created_at';
     orderBy[sortField as string] = sortOrder === 'asc' ? 'asc' : 'desc';
 
+    // 🟢 TASK 9: Execute queries with pagination
     const [orders, total] = await Promise.all([
       prisma.orders.findMany({
         where,
@@ -635,8 +712,8 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
           }
         },
         orderBy,
-        take: Number(limit),
-        skip: Number(offset),
+        take: limitNumber,
+        skip: offsetNumber,
       }),
       prisma.orders.count({ where })
     ]);
@@ -650,20 +727,35 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
       _max: { total_price: true }
     });
 
+    // 🟢 TASK 9: Calculate pagination metadata
+    const totalPages = Math.ceil(total / limitNumber);
+    const currentPage = pageNumber;
+    const hasNextPage = currentPage < totalPages;
+    const hasPreviousPage = currentPage > 1;
+
     res.json({
       success: true,
       data: orders,
       meta: {
-        total,
-        limit: Number(limit),
-        offset: Number(offset),
-        hasMore: Number(offset) + Number(limit) < total,
+        // 🟢 TASK 9: Pagination info
+        pagination: {
+          currentPage,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limitNumber,
+          hasNextPage,
+          hasPreviousPage,
+          nextPage: hasNextPage ? currentPage + 1 : null,
+          previousPage: hasPreviousPage ? currentPage - 1 : null,
+        },
+        // Filters applied
         filters: {
           status: status || null,
           date: date || null,
           fromDate: fromDate || null,
           toDate: toDate || null,
           customer_id: customer_id || null,
+          search: search || null,  // 🟢 TASK 10: Show search term
         },
         sorting: {
           sortBy: sortField,
@@ -735,7 +827,7 @@ const getRevenueByDay = async (days: number = 7) => {
     result.push({
       date: date.toISOString().split('T')[0],
       day: date.toLocaleDateString('en-US', { weekday: 'short' }),
-      revenue: revenue._sum.total_price || 0,
+      revenue: Number(revenue._sum.total_price || 0),
       ordersCount
     });
   }
@@ -760,7 +852,6 @@ const getTopProducts = async (limit: number = 5) => {
     take: limit
   });
 
-  // Get product details for each
   const productIds = topProducts.map(item => item.product_id);
   const products = await prisma.products.findMany({
     where: {
@@ -778,7 +869,6 @@ const getTopProducts = async (limit: number = 5) => {
     }
   });
 
-  // Map products with their order counts
   return topProducts.map(item => {
     const product = products.find(p => p.id === item.product_id);
     return {
@@ -786,7 +876,7 @@ const getTopProducts = async (limit: number = 5) => {
       name: product?.name || 'Unknown',
       category: product?.category?.category_name || 'Uncategorized',
       total_ordered: item._sum.quantity || 0,
-      price: product?.price || 0,
+      price: Number(product?.price || 0),
       image_url: product?.image_url || '',
       revenue: Number(product?.price || 0) * (item._sum.quantity || 0)
     };
@@ -797,7 +887,6 @@ const getTopProducts = async (limit: number = 5) => {
  * Helper: Get customer statistics
  */
 const getCustomerStats = async (dateFilter: any) => {
-  // Total unique customers who placed orders
   const totalCustomers = await prisma.orders.groupBy({
     by: ['customer_id'],
     where: {
@@ -808,7 +897,6 @@ const getCustomerStats = async (dateFilter: any) => {
     }
   });
 
-  // Customers with more than 1 order (returning)
   const returningCustomers = await prisma.orders.groupBy({
     by: ['customer_id'],
     where: {
@@ -838,7 +926,6 @@ const getCustomerStats = async (dateFilter: any) => {
  */
 export const getOrderStats = async (req: AuthRequest, res: Response) => {
   try {
-    // Check if user is admin
     if (req.user?.role?.role_name !== 'Admin') {
       return res.status(403).json({
         success: false,
@@ -875,13 +962,9 @@ export const getOrderStats = async (req: AuthRequest, res: Response) => {
         };
     }
 
-    // 🟢 1. Revenue by Day (Last 7 days)
     const revenueByDay = await getRevenueByDay(7);
-
-    // 🟢 2. Top 5 Products
     const topProducts = await getTopProducts(5);
 
-    // 3. Basic stats
     const [totalOrders, totalRevenue, statusCounts] = await Promise.all([
       prisma.orders.count({
         where: { created_at: dateFilter }
@@ -913,13 +996,8 @@ export const getOrderStats = async (req: AuthRequest, res: Response) => {
       count: status.orders.length
     }));
 
-    // 4. Customer statistics
     const customerStats = await getCustomerStats(dateFilter);
-
-    // ✅ FIX: Safely handle null/undefined values with proper type conversion
     const totalRevenueValue = Number(totalRevenue._sum.total_price || 0);
-    
-    // ✅ FIX: Calculate average order value safely with type conversion
     const averageOrderValue = totalOrders > 0 
       ? Number(totalRevenueValue) / totalOrders 
       : 0;
@@ -931,13 +1009,9 @@ export const getOrderStats = async (req: AuthRequest, res: Response) => {
         totalOrders,
         totalRevenue: totalRevenueValue,
         statusBreakdown,
-        // 🟢 NEW: Revenue by day breakdown
         revenueByDay,
-        // 🟢 NEW: Top 5 products
         topProducts,
-        // 🟢 NEW: Customer statistics
         customerStats,
-        // 🟢 NEW: Summary
         summary: {
           averageOrderValue,
           totalCustomers: customerStats.totalCustomers,
@@ -965,7 +1039,6 @@ export const getOrderStats = async (req: AuthRequest, res: Response) => {
  */
 export const exportOrdersCSV = async (req: AuthRequest, res: Response) => {
   try {
-    // Check if user is admin
     if (req.user?.role?.role_name !== 'Admin') {
       return res.status(403).json({
         success: false,
@@ -975,7 +1048,6 @@ export const exportOrdersCSV = async (req: AuthRequest, res: Response) => {
 
     const { fromDate, toDate } = req.query;
 
-    // Validate date parameters
     if (!fromDate || !toDate) {
       return res.status(400).json({
         success: false,
@@ -993,10 +1065,8 @@ export const exportOrdersCSV = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Set to end of day for toDate
     toDateObj.setHours(23, 59, 59, 999);
 
-    // Fetch orders within date range
     const orders = await prisma.orders.findMany({
       where: {
         created_at: {
@@ -1034,7 +1104,6 @@ export const exportOrdersCSV = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Generate CSV content
     const csvHeaders = [
       'Order ID',
       'Date',
@@ -1072,10 +1141,8 @@ export const exportOrdersCSV = async (req: AuthRequest, res: Response) => {
       ];
     });
 
-    // Build CSV string
     let csvContent = csvHeaders.join(',') + '\n';
     csvRows.forEach(row => {
-      // Escape quotes and wrap fields with commas in quotes
       const escapedRow = row.map(field => {
         if (typeof field === 'string' && (field.includes(',') || field.includes('"') || field.includes('\n'))) {
           return `"${field.replace(/"/g, '""')}"`;
@@ -1085,13 +1152,11 @@ export const exportOrdersCSV = async (req: AuthRequest, res: Response) => {
       csvContent += escapedRow.join(',') + '\n';
     });
 
-    // Set response headers for CSV download
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename=orders_${fromDate}_to_${toDate}.csv`);
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Pragma', 'no-cache');
 
-    // Send CSV
     res.status(200).send(csvContent);
 
   } catch (error) {
@@ -1193,7 +1258,6 @@ export const cancelOrder = async (req: AuthRequest, res: Response) => {
 
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
-    // ✅ FIXED: Fetch user profile to match profile.id with order.customer_id
     const profile = await prisma.customerProfiles.findUnique({
       where: { user_id: userId }
     });
