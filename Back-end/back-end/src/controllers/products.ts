@@ -1,4 +1,4 @@
-import type { Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 import NodeCache from 'node-cache';
 
@@ -170,6 +170,7 @@ export const getProducts = async (req: Request, res: Response) => {
  * Get categories (Public) - WITH CACHING
  * 🟢 Cached for 5 minutes to reduce database load
  */
+
 export const getCategories = async (req: Request, res: Response) => {
   try {
     const cacheKey = 'categories:all';
