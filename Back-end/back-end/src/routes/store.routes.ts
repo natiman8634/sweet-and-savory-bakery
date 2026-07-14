@@ -10,8 +10,8 @@ import {
   getLowStockProducts,
   createProduct,
   deleteProduct,
-  clearCache,        // 🟢 NEW: Cache management
-  getCacheStats,     // 🟢 NEW: Cache statistics
+  clearCache,
+  getCacheStats,
 } from '../controllers/products.js';
 import {
   createOrder,
@@ -22,14 +22,15 @@ import {
   updateOrderStatus,
   cancelOrder,
   getOrderStats,
-  exportOrdersCSV,   // 🟢 NEW: CSV Export
+  exportOrdersCSV,
 } from '../controllers/orders.js';
 import { authenticate, adminAuth } from '../middleware/auth.js';
-import { getNotifications, markNotificationAsRead } from '../controllers/notifications.js'; // ✅ Fixed: Changed .ts to .js
+import { getNotifications, markNotificationAsRead } from '../controllers/notifications.js';
 import { auditLogger } from '../middleware/auditLogger.js';
 
 const router = express.Router();
 
+// Apply audit logger to all routes
 router.use(auditLogger);
 
 // ============================================
@@ -45,7 +46,9 @@ router.get('/test', (req, res) => {
       products: 'GET /api/products (🟢 Cached)',
       categories: 'GET /api/categories (🟢 Cached)',
       orders: 'POST /api/orders',
+      'my-orders': 'GET /api/orders/my-orders (🟢 Pagination)',
       admin: 'GET /api/admin/products',
+      'admin-orders': 'GET /api/admin/orders (🟢 Pagination + Search)',
       export: 'GET /api/admin/orders/export',
       stats: 'GET /api/admin/orders/stats'
     }
@@ -67,7 +70,11 @@ router.get('/categories', getCategories);
 // ============================================
 // Orders - User routes (specific routes first)
 router.post('/orders', authenticate, createOrder);
+
+// 🟢 TASK 9: Customer orders with pagination
+// GET /api/orders/my-orders?page=1&limit=10&status=Pending
 router.get('/orders/my-orders', authenticate, getMyOrders);
+
 router.put('/orders/:id/cancel', authenticate, cancelOrder);
 router.get('/orders/customer/:customerId', authenticate, getCustomerOrders);
 
@@ -90,15 +97,17 @@ router.patch('/admin/products/:id/toggle-availability', adminAuth, toggleProduct
 router.post('/admin/products/bulk-update', adminAuth, bulkUpdateProducts);
 router.get('/admin/products/low-stock/report', adminAuth, getLowStockProducts);
 
+// 🟢 TASK 9 & 10: Admin orders with pagination and search
+// GET /api/admin/orders?page=1&limit=20&search=John&status=Pending&date=2026-07-09
+router.get('/admin/orders', adminAuth, getAllOrders);
+
+router.patch('/admin/orders/:id/status', adminAuth, updateOrderStatus);
+
 // 🟢 TASK 1: Advanced Statistics
 router.get('/admin/orders/stats', adminAuth, getOrderStats);
 
 // 🟢 TASK 2: Export Functionality
 router.get('/admin/orders/export', adminAuth, exportOrdersCSV);
-
-// Order Management
-router.get('/admin/orders', adminAuth, getAllOrders);
-router.patch('/admin/orders/:id/status', adminAuth, updateOrderStatus);
 
 // 🟢 TASK 3: Cache Management (Admin only)
 router.delete('/admin/cache', adminAuth, clearCache);
@@ -116,9 +125,14 @@ router.stack.forEach((layer: any) => {
     const hasAuth = layer.route.stack.some((s: any) => 
       s.handle?.name === 'authenticate' || s.handle?.name === 'adminAuth'
     );
-    // Check if route has caching (check if it's products or categories)
+    // Check if route has caching
     const hasCache = path === '/products' || path === '/categories';
-    console.log(`  ${methods} /api${path} ${hasAuth ? '🔒' : '🌐'} ${hasCache ? '🟢 Cached' : ''}`);
+    // Check if route has pagination
+    const hasPagination = path === '/orders/my-orders' || path === '/admin/orders';
+    // Check if route has search
+    const hasSearch = path === '/admin/orders';
+    
+    console.log(`  ${methods} /api${path} ${hasAuth ? '🔒' : '🌐'} ${hasCache ? '🟢 Cached' : ''} ${hasPagination ? '📄 Pagination' : ''} ${hasSearch ? '🔍 Search' : ''}`);
   }
 });
 console.log('');
