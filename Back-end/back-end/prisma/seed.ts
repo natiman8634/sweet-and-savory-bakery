@@ -4,21 +4,7 @@ import bcrypt from 'bcrypt';
 async function main() {
   console.log('🌱 Starting Sweet & Savory Bakery seeding...');
 
-  // ============================================
-  // 0. CLEANUP EXISTING DATA
-  // ============================================
-  console.log('🧹 Cleaning up database...');
-  await prisma.notifications.deleteMany();
-  await prisma.payments.deleteMany();
-  await prisma.orderItems.deleteMany();
-  await prisma.orders.deleteMany();
-  await prisma.products.deleteMany();
-  await prisma.customerProfiles.deleteMany();
-  await prisma.users.deleteMany();
-  await prisma.userRoles.deleteMany();
-  await prisma.orderStatuses.deleteMany();
-  await prisma.categories.deleteMany();
-
+ 
   // ============================================
   // 1. CREATE USER ROLES
   // ============================================
