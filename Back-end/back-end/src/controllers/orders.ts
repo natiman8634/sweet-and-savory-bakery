@@ -232,9 +232,17 @@ export const getOrderById = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized',
+      });
+    }
+
     // ✅ FIXED: Fetch customer profile to accurately map profile ID to ownership check
     const profile = await prisma.customerProfiles.findUnique({
-      where: { user_id: req.user?.userId }
+      where: { user_id: userId }
     });
 
     const isAdmin = req.user?.role?.role_name === 'Admin';
@@ -278,9 +286,17 @@ export const getCustomerOrders = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized',
+      });
+    }
+
     // ✅ FIXED: Map the authenticated user to their profile id to correctly match ownership parameters
     const profile = await prisma.customerProfiles.findUnique({
-      where: { user_id: req.user?.userId }
+      where: { user_id: userId }
     });
 
     const isAdmin = req.user?.role?.role_name === 'Admin';
