@@ -30,6 +30,6 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "prisma.config.ts", "prisma/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
