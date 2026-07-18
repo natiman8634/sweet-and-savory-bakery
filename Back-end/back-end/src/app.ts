@@ -32,9 +32,23 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Body parsing middleware
+// ✅ Body parsing middleware (CRITICAL - must be before routes)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ✅ DEBUG: Log all requests to see what's coming in
+app.use((req, res, next) => {
+  console.log(`\n📨 ${req.method} ${req.path}`);
+  console.log(`  Headers:`, {
+    'content-type': req.headers['content-type'],
+    'content-length': req.headers['content-length'],
+    'authorization': req.headers['authorization'] ? 'Bearer ***' : 'None'
+  });
+  console.log(`  Body:`, req.body);
+  console.log(`  Body type:`, typeof req.body);
+  console.log(`  Body keys:`, req.body ? Object.keys(req.body) : 'No body');
+  next();
+});
 
 // ============================================
 // ROUTES
@@ -67,6 +81,17 @@ app.get('/', (req, res) => {
   });
 });
 
+// ✅ TEST ROUTE - Add this to test body parsing directly
+app.post('/test-body', (req, res) => {
+  console.log('✅ Test body received:', req.body);
+  res.json({
+    success: true,
+    message: 'Body parsing is working!',
+    receivedBody: req.body,
+    contentType: req.headers['content-type']
+  });
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api', storeRoutes);
@@ -75,7 +100,7 @@ app.use('/api', storeRoutes);
 // ERROR HANDLING
 // ============================================
 
-// 404 - Route not found
+// 404 - Route not found (must come before error handler)
 app.use((req: express.Request, res: express.Response) => {
   res.status(404).json({
     success: false,
@@ -85,75 +110,7 @@ app.use((req: express.Request, res: express.Response) => {
   });
 });
 
-// Global error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('❌ Error:', {
-    message: err.message,
-    stack: err.stack,
-    path: req.path,
-    method: req.method,
-    body: req.body,
-    query: req.query,
-    params: req.params
-  });
-
-  // Handle specific error types
-  if (err.name === 'ValidationError') {
-    return res.status(400).json({
-      success: false,
-      message: 'Validation Error',
-      errors: err.errors || err.message
-    });
-  }
-
-  if (err.name === 'PrismaClientKnownRequestError') {
-    // Handle Prisma specific errors
-    switch (err.code) {
-      case 'P2002':
-        return res.status(409).json({
-          success: false,
-          message: 'Unique constraint violation',
-          error: 'A record with this value already exists'
-        });
-      case 'P2025':
-        return res.status(404).json({
-          success: false,
-          message: 'Record not found',
-          error: 'The requested record does not exist'
-        });
-      default:
-        return res.status(400).json({
-          success: false,
-          message: 'Database error',
-          error: err.message
-        });
-    }
-  }
-
-  if (err.name === 'JsonWebTokenError') {
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid token',
-      error: 'Please provide a valid authentication token'
-    });
-  }
-
-  if (err.name === 'TokenExpiredError') {
-    return res.status(401).json({
-      success: false,
-      message: 'Token expired',
-      error: 'Please refresh your authentication token'
-    });
-  }
-
-  // Default error response
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.stack : undefined
-  });
-});
-
+// ✅ Global error handler
 app.use(errorHandler);
 
 // ============================================
@@ -168,6 +125,7 @@ console.log('    - /api/auth (Authentication)');
 console.log('    - /api (Store - Public)');
 console.log('    - /api/admin (Store - Admin)');
 console.log('    - /health (Health Check)');
+console.log('    - /test-body (Test Route)');
 console.log('');
 
 export default app;

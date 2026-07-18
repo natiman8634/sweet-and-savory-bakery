@@ -12,7 +12,7 @@ import {
   deleteProduct,
   clearCache,
   getCacheStats,
- } from '../controllers/products.js';
+} from '../controllers/products.js';
 import {
   createOrder,
   getOrderById,
@@ -23,7 +23,14 @@ import {
   cancelOrder,
   getOrderStats,
   exportOrdersCSV,
+  getDashboardData,  // 🟢 NEW: Task 1 - Dashboard
 } from '../controllers/orders.js';
+import {
+  createReview,
+  getProductReviews,
+  getMyReviews,
+  deleteReview,
+} from '../controllers/reviews.js';  // 🟢 NEW: Task 2 - Reviews
 import { authenticate, adminAuth } from '../middleware/auth.js';
 import { getNotifications, markNotificationAsRead } from '../controllers/notifications.js';
 import { auditLogger } from '../middleware/auditLogger.js';
@@ -47,6 +54,8 @@ router.get('/test', (req, res) => {
       categories: 'GET /api/categories (🟢 Cached)',
       orders: 'POST /api/orders',
       'my-orders': 'GET /api/orders/my-orders (🟢 Pagination)',
+      dashboard: 'GET /api/admin/dashboard (📊 Dashboard)',
+      reviews: 'GET /api/products/:id/reviews (⭐ Reviews)',
       admin: 'GET /api/admin/products',
       'admin-orders': 'GET /api/admin/orders (🟢 Pagination + Search)',
       export: 'GET /api/admin/orders/export',
@@ -54,7 +63,6 @@ router.get('/test', (req, res) => {
     }
   });
 });
-
 
 // ============================================
 // PUBLIC ROUTES (WITH CACHING 🟢 TASK 3)
@@ -65,6 +73,9 @@ router.get('/products/:id', getProductById);
 
 // Categories - Cached for 5 minutes
 router.get('/categories', getCategories);
+
+// 🟢 TASK 2: Get product reviews (Public)
+router.get('/products/:id/reviews', getProductReviews);
 
 // ============================================
 // PROTECTED ROUTES (Authentication Required)
@@ -78,6 +89,11 @@ router.get('/orders/my-orders', authenticate, getMyOrders);
 
 router.put('/orders/:id/cancel', authenticate, cancelOrder);
 router.get('/orders/customer/:customerId', authenticate, getCustomerOrders);
+
+// 🟢 TASK 2: Review routes (Authenticated)
+router.post('/products/:id/reviews', authenticate, createReview);
+router.get('/reviews/my-reviews', authenticate, getMyReviews);
+router.delete('/reviews/:id', authenticate, deleteReview);
 
 // Notifications
 router.get('/notifications', authenticate, getNotifications);
@@ -97,6 +113,9 @@ router.delete('/admin/products/:id', adminAuth, deleteProduct);
 router.patch('/admin/products/:id/toggle-availability', adminAuth, toggleProductAvailability);
 router.post('/admin/products/bulk-update', adminAuth, bulkUpdateProducts);
 router.get('/admin/products/low-stock/report', adminAuth, getLowStockProducts);
+
+// 🟢 TASK 1: Advanced Sales Dashboard
+router.get('/admin/dashboard', adminAuth, getDashboardData);
 
 // 🟢 TASK 9 & 10: Admin orders with pagination and search
 // GET /api/admin/orders?page=1&limit=20&search=John&status=Pending&date=2026-07-09
@@ -132,8 +151,12 @@ router.stack.forEach((layer: any) => {
     const hasPagination = path === '/orders/my-orders' || path === '/admin/orders';
     // Check if route has search
     const hasSearch = path === '/admin/orders';
+    // Check if route is dashboard
+    const isDashboard = path === '/admin/dashboard';
+    // Check if route is reviews
+    const isReviews = path === '/products/:id/reviews' || path === '/reviews/my-reviews';
     
-    console.log(`  ${methods} /api${path} ${hasAuth ? '🔒' : '🌐'} ${hasCache ? '🟢 Cached' : ''} ${hasPagination ? '📄 Pagination' : ''} ${hasSearch ? '🔍 Search' : ''}`);
+    console.log(`  ${methods} /api${path} ${hasAuth ? '🔒' : '🌐'} ${hasCache ? '🟢 Cached' : ''} ${hasPagination ? '📄 Pagination' : ''} ${hasSearch ? '🔍 Search' : ''} ${isDashboard ? '📊 Dashboard' : ''} ${isReviews ? '⭐ Reviews' : ''}`);
   }
 });
 console.log('');
