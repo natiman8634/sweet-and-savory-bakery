@@ -121,7 +121,8 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     const { validatedItems, validationErrors } = await validateOrderItems(items);
     if (validationErrors.length > 0) return res.status(400).json({ success: false, errors: validationErrors });
 
-    const totalPrice = validatedItems.reduce((sum, item) => sum + Number(item.subtotal), 0);
+    // ✅ FIX: Convert Decimal to number using Number()
+    const totalPrice = validatedItems.reduce((sum, item) => Number(sum) + Number(item.subtotal), 0);
 
     // 3. Database Transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -136,7 +137,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
             create: validatedItems.map((item: any) => ({
               product_id: item.product_id,
               quantity: item.quantity,
-              subtotal: item.subtotal
+              subtotal: Number(item.subtotal)
             }))
           }
         },
@@ -173,15 +174,15 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
 
     if (user?.email) {
       console.log('📧 Sending order confirmation to:', user.email);
-      // ✅ FIX: Safely access full_name with optional chaining
       const customerName = user?.profile?.full_name || 'Customer';
       
+      // ✅ FIX: Convert Decimal to number using Number()
       sendOrderConfirmation(
         user.email,
         customerName,
         result.id,
         result.orderItems,
-        result.total_price,
+        Number(result.total_price),
         result.order_type,
         result.scheduled_for
       ).catch(error => console.error('❌ Email send error:', error));
@@ -1457,6 +1458,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // ✅ FIX: Added profile: true to include customer's profile
     const updatedOrder = await prisma.orders.update({
       where: { id: orderId },
       data: {
@@ -1472,24 +1474,25 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
                 email: true 
               }
             },
-            profile: true
+            profile: true  // ✅ This is the fix for full_name
           }
         },
       },
     });
 
     // ✅ FIX: Safely access full_name with optional chaining
-    const customerName = updatedOrder.customer?.profile?.full_name || 'Customer';
+    const customerName = updatedOrder.customer?.full_name || 'Customer';
+    const customerEmail = updatedOrder.customer?.user?.email;
 
     // ✅ SEND STATUS UPDATE EMAIL
     console.log('📧 Attempting to send status update email...');
-    console.log('📧 Customer email:', updatedOrder.customer?.user?.email);
+    console.log('📧 Customer email:', customerEmail);
     console.log('📧 Customer name:', customerName);
     console.log('📧 Status:', updatedOrder.status?.status_name);
     
-    if (updatedOrder.customer?.user?.email) {
+    if (customerEmail) {
       sendOrderStatusUpdate(
-        updatedOrder.customer.user.email,
+        customerEmail,
         customerName,
         updatedOrder.id,
         updatedOrder.status?.status_name || 'Updated'
