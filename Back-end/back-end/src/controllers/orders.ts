@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 import { orderSchema } from '../utils/validators.js';
+import { sendOrderConfirmation, sendOrderStatusUpdate } from '../services/emailService.js';
 
 // Extend Request type for authenticated requests
 interface AuthRequest extends Request {
@@ -80,10 +81,12 @@ const validateOrderItems = async (items: OrderItemInput[]) => {
       continue;
     }
 
+    // ✅ FIX: Convert Decimal to number using Number()
+    const price = Number(product.price);
     validatedItems.push({
       ...item,
       product,
-      subtotal: Number(product.price) * item.quantity
+      subtotal: price * item.quantity
     });
   }
 
@@ -92,6 +95,7 @@ const validateOrderItems = async (items: OrderItemInput[]) => {
 
 /**
  * Create a new order with inventory validation
+ * ✅ Sends order confirmation email
  */
 export const createOrder = async (req: AuthRequest, res: Response) => {
   try {
@@ -136,7 +140,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
             }))
           }
         },
-        include: { orderItems: true }
+        include: { orderItems: { include: { product: true } } }
       });
 
       for (const item of validatedItems) {
@@ -156,6 +160,34 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
         trigger_type: 'Order_Update'
       }
     });
+
+    // ✅ 5. SEND ORDER CONFIRMATION EMAIL
+    console.log('📧 Attempting to send order confirmation email...');
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      include: { profile: true }
+    });
+
+    console.log('📧 User found:', user?.email);
+    console.log('📧 User name:', user?.profile?.full_name);
+
+    if (user?.email) {
+      console.log('📧 Sending order confirmation to:', user.email);
+      // ✅ FIX: Safely access full_name with optional chaining
+      const customerName = user?.profile?.full_name || 'Customer';
+      
+      sendOrderConfirmation(
+        user.email,
+        customerName,
+        result.id,
+        result.orderItems,
+        result.total_price,
+        result.order_type,
+        result.scheduled_for
+      ).catch(error => console.error('❌ Email send error:', error));
+    } else {
+      console.log('❌ No user email found, skipping email');
+    }
 
     res.status(201).json({ success: true, data: result });
   } catch (error) {
@@ -751,7 +783,7 @@ const getRevenueByDay = async (days: number = 7) => {
     result.push({
       date: date.toISOString().split('T')[0],
       day: date.toLocaleDateString('en-US', { weekday: 'short' }),
-      revenue: revenue._sum.total_price || 0,
+      revenue: Number(revenue._sum.total_price || 0),
       ordersCount
     });
   }
@@ -802,7 +834,7 @@ const getTopProducts = async (limit: number = 5) => {
       name: product?.name || 'Unknown',
       category: product?.category?.category_name || 'Uncategorized',
       total_ordered: item._sum.quantity || 0,
-      price: product?.price || 0,
+      price: Number(product?.price || 0),
       image_url: product?.image_url || '',
       revenue: Number(product?.price || 0) * (item._sum.quantity || 0)
     };
@@ -970,9 +1002,6 @@ export const getOrderStats = async (req: AuthRequest, res: Response) => {
     });
   }
 };
-
-
-
 
 // ============================================================
 // 🟢 TASK 1: ADVANCED SALES DASHBOARD
@@ -1237,6 +1266,7 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
     });
   }
 };
+
 // ============================================================
 // 🟢 TASK 2: EXPORT FUNCTIONALITY - CSV Export
 // ============================================================
@@ -1388,6 +1418,7 @@ export const exportOrdersCSV = async (req: AuthRequest, res: Response) => {
 
 /**
  * Update order status
+ * ✅ Sends status update email
  */
 export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
   try {
@@ -1435,11 +1466,37 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
         status: true,
         customer: {
           include: {
-            user: { select: { id: true, email: true } }
+            user: {
+              select: { 
+                id: true, 
+                email: true 
+              }
+            },
+            profile: true
           }
         },
       },
     });
+
+    // ✅ FIX: Safely access full_name with optional chaining
+    const customerName = updatedOrder.customer?.profile?.full_name || 'Customer';
+
+    // ✅ SEND STATUS UPDATE EMAIL
+    console.log('📧 Attempting to send status update email...');
+    console.log('📧 Customer email:', updatedOrder.customer?.user?.email);
+    console.log('📧 Customer name:', customerName);
+    console.log('📧 Status:', updatedOrder.status?.status_name);
+    
+    if (updatedOrder.customer?.user?.email) {
+      sendOrderStatusUpdate(
+        updatedOrder.customer.user.email,
+        customerName,
+        updatedOrder.id,
+        updatedOrder.status?.status_name || 'Updated'
+      ).catch(error => console.error('❌ Status email error:', error));
+    } else {
+      console.log('❌ No user email found, skipping status email');
+    }
 
     res.json({
       success: true,
