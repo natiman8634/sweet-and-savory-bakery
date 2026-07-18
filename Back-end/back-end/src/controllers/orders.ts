@@ -971,6 +971,272 @@ export const getOrderStats = async (req: AuthRequest, res: Response) => {
   }
 };
 
+
+
+
+// ============================================================
+// 🟢 TASK 1: ADVANCED SALES DASHBOARD
+// ============================================================
+
+/**
+ * Get comprehensive dashboard data for admin
+ * GET /api/admin/dashboard
+ * Includes: Total revenue, orders count, average order value,
+ * top 3 products, revenue comparison with yesterday,
+ * hourly revenue breakdown (last 12 hours)
+ */
+export const getDashboardData = async (req: AuthRequest, res: Response) => {
+  try {
+    // Check if user is admin
+    if (req.user?.role?.role_name !== 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Admin privileges required.'
+      });
+    }
+
+    const now = new Date();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // 1. Today's stats
+    const todayStats = await prisma.orders.aggregate({
+      where: {
+        created_at: {
+          gte: today,
+          lt: tomorrow
+        },
+        status: {
+          status_name: {
+            notIn: ['Cancelled', 'Unpaid']
+          }
+        }
+      },
+      _count: true,
+      _sum: {
+        total_price: true
+      },
+      _avg: {
+        total_price: true
+      }
+    });
+
+    // 2. Yesterday's stats (for comparison)
+    const yesterdayStats = await prisma.orders.aggregate({
+      where: {
+        created_at: {
+          gte: yesterday,
+          lt: today
+        },
+        status: {
+          status_name: {
+            notIn: ['Cancelled', 'Unpaid']
+          }
+        }
+      },
+      _sum: {
+        total_price: true
+      }
+    });
+
+    // 3. Top 3 best-selling products today
+    const topProducts = await prisma.orderItems.groupBy({
+      by: ['product_id'],
+      where: {
+        order: {
+          created_at: {
+            gte: today,
+            lt: tomorrow
+          },
+          status: {
+            status_name: {
+              notIn: ['Cancelled', 'Unpaid']
+            }
+          }
+        }
+      },
+      _sum: {
+        quantity: true
+      },
+      orderBy: {
+        _sum: {
+          quantity: 'desc'
+        }
+      },
+      take: 3
+    });
+
+    // Get product details for top products
+    const productIds = topProducts.map(item => item.product_id);
+    const products = await prisma.products.findMany({
+      where: {
+        id: {
+          in: productIds
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        image_url: true,
+        category: {
+          select: {
+            category_name: true
+          }
+        }
+      }
+    });
+
+    const topProductsWithDetails = topProducts.map(item => {
+      const product = products.find(p => p.id === item.product_id);
+      const productPrice = product?.price ? Number(product.price) : 0;
+      const totalQuantity = item._sum.quantity || 0;
+      
+      return {
+        product_id: item.product_id,
+        name: product?.name || 'Unknown',
+        category: product?.category?.category_name || 'Uncategorized',
+        total_quantity_sold: totalQuantity,
+        price: productPrice,
+        revenue: productPrice * totalQuantity
+      };
+    });
+
+    // 4. Hourly revenue breakdown (last 12 hours)
+    const twelveHoursAgo = new Date(now);
+    twelveHoursAgo.setHours(now.getHours() - 12);
+
+    // ✅ FIXED: Use "Orders" with double quotes (PostgreSQL is case-sensitive)
+    const hourlyRevenue = await prisma.$queryRaw`
+      SELECT 
+        DATE_TRUNC('hour', "created_at") as hour,
+        SUM("total_price") as revenue,
+        COUNT(*) as orders_count
+      FROM "Orders"
+      WHERE 
+        "created_at" >= ${twelveHoursAgo}
+        AND "created_at" <= ${now}
+        AND "status_id" NOT IN (
+          SELECT id FROM "OrderStatuses" WHERE status_name IN ('Cancelled', 'Unpaid')
+        )
+      GROUP BY DATE_TRUNC('hour', "created_at")
+      ORDER BY hour ASC
+    ` as any[];
+
+    // Format hourly data
+    const hourlyBreakdown = hourlyRevenue.map((item: any) => ({
+      hour: new Date(item.hour).toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        hour12: false 
+      }),
+      revenue: Number(item.revenue) || 0,
+      ordersCount: Number(item.orders_count) || 0
+    }));
+
+    // 5. Calculate revenue comparison
+    const todayRevenue = todayStats._sum.total_price ? Number(todayStats._sum.total_price) : 0;
+    const yesterdayRevenue = yesterdayStats._sum.total_price ? Number(yesterdayStats._sum.total_price) : 0;
+    
+    let revenueChangePercentage = 0;
+    if (yesterdayRevenue > 0) {
+      revenueChangePercentage = ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100;
+    } else if (todayRevenue > 0) {
+      revenueChangePercentage = 100;
+    }
+
+    // 6. Additional KPIs
+    const totalOrders = todayStats._count || 0;
+    const averageOrderValue = todayStats._avg.total_price ? Number(todayStats._avg.total_price) : 0;
+
+    // 7. Get today's orders for recent activity
+    const recentOrders = await prisma.orders.findMany({
+      where: {
+        created_at: {
+          gte: today,
+          lt: tomorrow
+        },
+        status: {
+          status_name: {
+            notIn: ['Cancelled', 'Unpaid']
+          }
+        }
+      },
+      include: {
+        customer: {
+          include: {
+            user: {
+              select: {
+                email: true
+              }
+            }
+          }
+        },
+        status: true,
+        orderItems: {
+          take: 2,
+          include: {
+            product: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        created_at: 'desc'
+      },
+      take: 5
+    });
+
+    res.json({
+      success: true,
+      data: {
+        date: today.toISOString().split('T')[0],
+        summary: {
+          totalRevenue: todayRevenue,
+          totalOrders,
+          averageOrderValue,
+          revenueChangePercentage: Number(revenueChangePercentage.toFixed(1)),
+          trend: revenueChangePercentage >= 0 ? 'up' : 'down'
+        },
+        topProducts: topProductsWithDetails,
+        hourlyBreakdown,
+        recentOrders: recentOrders.map(order => ({
+          id: order.id.slice(0, 8),
+          customerName: order.customer?.full_name || 'Guest',
+          customerEmail: order.customer?.user?.email || 'guest@example.com',
+          total: Number(order.total_price),
+          status: order.status?.status_name || 'Unknown',
+          items: order.orderItems.map(item => item.product?.name).join(', '),
+          time: order.created_at.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          })
+        })),
+        comparison: {
+          todayRevenue,
+          yesterdayRevenue,
+          change: Number(revenueChangePercentage.toFixed(1)),
+          changeAmount: Number(todayRevenue - yesterdayRevenue)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch dashboard data',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
 // ============================================================
 // 🟢 TASK 2: EXPORT FUNCTIONALITY - CSV Export
 // ============================================================

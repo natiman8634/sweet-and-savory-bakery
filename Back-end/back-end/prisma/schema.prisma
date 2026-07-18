@@ -21,6 +21,7 @@ model Users {
   created_at DateTime @default(now())
   profile    CustomerProfiles?
   notifications Notifications[]
+  reviews    ProductReviews[]
 
   @@index([email])
 }
@@ -52,7 +53,8 @@ model Products {
   stock_quantity Int
   is_available Boolean @default(true)
   orderItems   OrderItems[]
-  deleted_at     DateTime?
+  reviews      ProductReviews[]  // 🟢 NEW: Relation to reviews
+  deleted_at   DateTime?
 
   @@index([category_id]) 
   @@index([name])
@@ -130,4 +132,25 @@ model AuditLogs {
   details    Json?    // Optional: capture request body or changes
 
   @@index([timestamp])
+}
+
+// ============================================================
+// 🟢 TASK 2: PRODUCT REVIEW & RATING SYSTEM
+// ============================================================
+model ProductReviews {
+  id                   String   @id @default(uuid())
+  product_id           String
+  product              Products @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  user_id              String
+  user                 Users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  rating               Int      // 1-5
+  comment              String   @db.Text
+  is_verified_purchase Boolean  @default(false)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  @@unique([product_id, user_id]) // Prevent duplicate reviews
+  @@index([product_id])
+  @@index([user_id])
+  @@index([created_at])
 }

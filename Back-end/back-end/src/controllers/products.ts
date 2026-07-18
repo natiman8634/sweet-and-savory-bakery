@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 import NodeCache from 'node-cache';
+import { getProductRatingStats } from './reviews.js';
 
 // ============================================================
 // 🟢 TASK 3: PERFORMANCE OPTIMIZATION - Caching
@@ -74,6 +75,7 @@ const getBooleanParam = (param: any): boolean => {
 /**
  * Get products with filtering (Public) - WITH CACHING
  * 🟢 Cached for 5 minutes to reduce database load
+ * 🟢 TASK 2: Includes average rating and reviews count
  */
 export const getProducts = async (req: Request, res: Response) => {
   try {
@@ -135,9 +137,23 @@ export const getProducts = async (req: Request, res: Response) => {
       ],
     });
 
+    // 🟢 TASK 2: Add rating stats to each product
+    const productsWithRatings = await Promise.all(
+      products.map(async (product) => {
+        const stats = await getProductRatingStats(product.id);
+        return {
+          ...product,
+          price: Number(product.price),
+          averageRating: stats.averageRating,
+          reviewsCount: stats.reviewsCount,
+          ratingDistribution: stats.distribution
+        };
+      })
+    );
+
     const response = {
       success: true,
-      data: products,
+      data: productsWithRatings,
       meta: {
         total: products.length,
         cached: false,
@@ -170,7 +186,6 @@ export const getProducts = async (req: Request, res: Response) => {
  * Get categories (Public) - WITH CACHING
  * 🟢 Cached for 5 minutes to reduce database load
  */
-
 export const getCategories = async (req: Request, res: Response) => {
   try {
     const cacheKey = 'categories:all';
@@ -233,6 +248,7 @@ export const getCategories = async (req: Request, res: Response) => {
 
 /**
  * Get single product by ID (Public)
+ * 🟢 TASK 2: Includes average rating and reviews count
  */
 export const getProductById = async (req: Request, res: Response) => {
   try {
@@ -275,9 +291,18 @@ export const getProductById = async (req: Request, res: Response) => {
       });
     }
 
+    // 🟢 TASK 2: Add rating stats
+    const stats = await getProductRatingStats(productId);
+
     res.json({
       success: true,
-      data: product,
+      data: {
+        ...product,
+        price: Number(product.price),
+        averageRating: stats.averageRating,
+        reviewsCount: stats.reviewsCount,
+        ratingDistribution: stats.distribution
+      },
     });
   } catch (error) {
     console.error('Error fetching product:', error);
@@ -354,9 +379,22 @@ export const getAllProductsAdmin = async (req: AuthRequest, res: Response) => {
       ],
     });
 
+    // 🟢 TASK 2: Add rating stats to admin product list
+    const productsWithRatings = await Promise.all(
+      products.map(async (product) => {
+        const stats = await getProductRatingStats(product.id);
+        return {
+          ...product,
+          price: Number(product.price),
+          averageRating: stats.averageRating,
+          reviewsCount: stats.reviewsCount
+        };
+      })
+    );
+
     res.json({
       success: true,
-      data: products,
+      data: productsWithRatings,
       meta: {
         total: products.length,
         available: products.filter(p => p.is_available).length,
@@ -480,7 +518,12 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
     res.status(201).json({
       success: true,
       message: 'Product created successfully',
-      data: product
+      data: {
+        ...product,
+        price: Number(product.price),
+        averageRating: 0,
+        reviewsCount: 0
+      }
     });
   } catch (error) {
     console.error('Error creating product:', error);
@@ -614,10 +657,18 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
       timestamp: new Date().toISOString()
     });
 
+    // 🟢 TASK 2: Add rating stats to updated product
+    const stats = await getProductRatingStats(productId);
+
     res.json({
       success: true,
       message: 'Product updated successfully',
-      data: updatedProduct
+      data: {
+        ...updatedProduct,
+        price: Number(updatedProduct.price),
+        averageRating: stats.averageRating,
+        reviewsCount: stats.reviewsCount
+      }
     });
   } catch (error) {
     console.error('Error updating product:', error);
@@ -673,10 +724,18 @@ export const toggleProductAvailability = async (req: AuthRequest, res: Response)
     // 🟢 Clear product cache after toggling availability
     clearProductCache();
 
+    // 🟢 TASK 2: Add rating stats
+    const stats = await getProductRatingStats(productId);
+
     res.json({
       success: true,
       message: `Product ${updatedProduct.is_available ? 'activated' : 'deactivated'} successfully`,
-      data: updatedProduct
+      data: {
+        ...updatedProduct,
+        price: Number(updatedProduct.price),
+        averageRating: stats.averageRating,
+        reviewsCount: stats.reviewsCount
+      }
     });
   } catch (error) {
     console.error('Error toggling product availability:', error);
@@ -749,7 +808,14 @@ export const bulkUpdateProducts = async (req: AuthRequest, res: Response) => {
           },
         });
 
-        results.push(updatedProduct);
+        // 🟢 TASK 2: Add rating stats
+        const stats = await getProductRatingStats(productId);
+        results.push({
+          ...updatedProduct,
+          price: Number(updatedProduct.price),
+          averageRating: stats.averageRating,
+          reviewsCount: stats.reviewsCount
+        });
       } catch (error: any) {
         errors.push({ 
           id: update.id, 
@@ -806,10 +872,23 @@ export const getLowStockProducts = async (req: AuthRequest, res: Response) => {
       }
     });
 
+    // 🟢 TASK 2: Add rating stats
+    const productsWithRatings = await Promise.all(
+      products.map(async (product) => {
+        const stats = await getProductRatingStats(product.id);
+        return {
+          ...product,
+          price: Number(product.price),
+          averageRating: stats.averageRating,
+          reviewsCount: stats.reviewsCount
+        };
+      })
+    );
+
     res.json({
       success: true,
       count: products.length,
-      data: products,
+      data: productsWithRatings,
       meta: {
         threshold: threshold,
         total: products.length,
@@ -879,10 +958,18 @@ export const deleteProduct = async (req: AuthRequest, res: Response) => {
       // 🟢 Clear product cache after deletion
       clearProductCache();
 
+      // 🟢 TASK 2: Add rating stats
+      const stats = await getProductRatingStats(productId);
+
       return res.json({
         success: true,
         message: 'Product has been deactivated (has existing orders)',
-        data: updatedProduct
+        data: {
+          ...updatedProduct,
+          price: Number(updatedProduct.price),
+          averageRating: stats.averageRating,
+          reviewsCount: stats.reviewsCount
+        }
       });
     }
 
