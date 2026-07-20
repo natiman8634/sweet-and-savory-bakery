@@ -1,0 +1,3 @@
+{"level":"info","message":"GET /jobs/53d375ee-42b4-48d3-91a4-be43d6372d3d 404 - 143ms","timestamp":"2026-07-20T11:11:43.345Z"}
+{"level":"info","message":"GET /favicon.ico 404 - 8ms","timestamp":"2026-07-20T11:11:43.877Z"}
+{"level":"info","message":"POST /api/auth/register 201 - 3897ms","timestamp":"2026-07-20T11:11:50.585Z"}
