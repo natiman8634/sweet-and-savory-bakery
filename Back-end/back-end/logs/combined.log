@@ -1,3 +1,5 @@
-{"level":"info","message":"GET /jobs/53d375ee-42b4-48d3-91a4-be43d6372d3d 404 - 143ms","timestamp":"2026-07-20T11:11:43.345Z"}
-{"level":"info","message":"GET /favicon.ico 404 - 8ms","timestamp":"2026-07-20T11:11:43.877Z"}
-{"level":"info","message":"POST /api/auth/register 201 - 3897ms","timestamp":"2026-07-20T11:11:50.585Z"}
+{"level":"info","message":"POST /api/auth/register 201 - 7916ms","timestamp":"2026-07-20T21:04:46.788Z"}
+{"level":"info","message":"POST /api/auth/register 201 - 3045ms","timestamp":"2026-07-20T21:13:45.648Z"}
+{"level":"info","message":"POST /api/auth/register 201 - 3656ms","timestamp":"2026-07-20T21:19:56.589Z"}
+{"level":"info","message":"POST /api/auth/register 201 - 4266ms","timestamp":"2026-07-20T21:30:07.138Z"}
+{"level":"info","message":"POST /api/auth/register 201 - 3145ms","timestamp":"2026-07-20T21:32:38.579Z"}

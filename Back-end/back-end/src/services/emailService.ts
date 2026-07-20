@@ -16,7 +16,15 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@bakery.com';
+const SMTP_USER = process.env.SMTP_USER || '';
+const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || 'Sweet & Savory Bakery';
+const EMAIL_FROM = process.env.EMAIL_FROM || SMTP_USER || 'noreply@bakery.com';
+const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO || SMTP_USER || EMAIL_FROM;
+
+const buildFromAddress = () => {
+  if (!SMTP_USER) return EMAIL_FROM;
+  return `${EMAIL_FROM_NAME} <${SMTP_USER}>`;
+};
 
 /**
  * Send order confirmation email
@@ -34,7 +42,8 @@ export const sendOrderConfirmation = async (
     const html = getOrderConfirmationTemplate(userName, orderId, items, total, orderType, scheduledFor);
     
     const mailOptions = {
-      from: EMAIL_FROM,
+      from: buildFromAddress(),
+      replyTo: EMAIL_REPLY_TO,
       to: userEmail,
       subject: `Order #${orderId.slice(0, 8)} Confirmed - Sweet & Savory Bakery`,
       html
@@ -62,7 +71,8 @@ export const sendOrderStatusUpdate = async (
     const html = getOrderStatusUpdateTemplate(userName, orderId, status);
     
     const mailOptions = {
-      from: EMAIL_FROM,
+      from: buildFromAddress(),
+      replyTo: EMAIL_REPLY_TO,
       to: userEmail,
       subject: `Order #${orderId.slice(0, 8)} Status Update - Sweet & Savory Bakery`,
       html
@@ -85,7 +95,8 @@ export const sendWelcomeEmail = async (userEmail: string, fullName: string) => {
     const html = getWelcomeTemplate(fullName);
     
     const mailOptions = {
-      from: EMAIL_FROM,
+      from: buildFromAddress(),
+      replyTo: EMAIL_REPLY_TO,
       to: userEmail,
       subject: 'Welcome to Sweet & Savory Bakery! 🎉',
       html
