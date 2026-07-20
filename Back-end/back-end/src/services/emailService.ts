@@ -3,7 +3,7 @@ import {
   getOrderConfirmationTemplate,
   getOrderStatusUpdateTemplate,
   getWelcomeTemplate
-} from './emailTemplates.ts';
+} from './emailTemplates.js';
 
 // Email configuration
 const transporter = nodemailer.createTransport({
