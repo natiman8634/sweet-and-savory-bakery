@@ -6,8 +6,10 @@ import authRoutes from './routes/auth.routes.js';
 import storeRoutes from './routes/store.routes.js';
 import { globalLimiter, sensitiveLimiter } from './middleware/rateLimiter.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { requestLogger } from './middleware/logger.js';
 
 const app = express();
+app.use(requestLogger);
 
 // ============================================
 // MIDDLEWARE

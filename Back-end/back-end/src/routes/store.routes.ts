@@ -1,4 +1,6 @@
 import express from 'express';
+import { validate } from '../middleware/validate.js';
+import { orderSchema, profileSchema } from '../utils/validators.js';
 import {
   getProducts,
   getCategories,
@@ -34,11 +36,16 @@ import {
 import { authenticate, adminAuth } from '../middleware/auth.js';
 import { getNotifications, markNotificationAsRead } from '../controllers/notifications.js';
 import { auditLogger } from '../middleware/auditLogger.js';
+import { getProfile, updateProfile } from '../controllers/users.js';
+import { globalLimiter, sensitiveLimiter } from '../middleware/rateLimiter.js';
+import { cacheMiddleware } from '../middleware/cache.js';
 
 const router = express.Router();
 
 // Apply audit logger to all routes
 router.use(auditLogger);
+
+router.use(globalLimiter);
 
 // ============================================
 // TEST ROUTE
@@ -68,12 +75,10 @@ router.get('/test', (req, res) => {
 // PUBLIC ROUTES (WITH CACHING 🟢 TASK 3)
 // ============================================
 // Products - Cached for 5 minutes
-router.get('/products', getProducts);
-router.get('/products/:id', getProductById);
+router.get('/products', cacheMiddleware(300), getProducts);router.get('/products/:id', getProductById);
 
 // Categories - Cached for 5 minutes
-router.get('/categories', getCategories);
-
+router.get('/categories', cacheMiddleware(300), getCategories);
 // 🟢 TASK 2: Get product reviews (Public)
 router.get('/products/:id/reviews', getProductReviews);
 
@@ -81,9 +86,7 @@ router.get('/products/:id/reviews', getProductReviews);
 // PROTECTED ROUTES (Authentication Required)
 // ============================================
 // Orders - User routes (specific routes first)
-router.post('/orders', authenticate, createOrder);
-
-// 🟢 TASK 9: Customer orders with pagination
+router.post('/orders', authenticate, sensitiveLimiter, validate(orderSchema), createOrder);
 // GET /api/orders/my-orders?page=1&limit=10&status=Pending
 router.get('/orders/my-orders', authenticate, getMyOrders);
 
@@ -132,7 +135,8 @@ router.get('/admin/orders/export', adminAuth, exportOrdersCSV);
 // 🟢 TASK 3: Cache Management (Admin only)
 router.delete('/admin/cache', adminAuth, clearCache);
 router.get('/admin/cache/stats', adminAuth, getCacheStats);
-
+router.get('/users/profile', authenticate, getProfile);
+router.put('/users/profile', authenticate, validate(profileSchema), updateProfile);
 // ============================================
 // DEBUG: Log routes when router is created
 // ============================================
@@ -146,7 +150,7 @@ router.stack.forEach((layer: any) => {
       s.handle?.name === 'authenticate' || s.handle?.name === 'adminAuth'
     );
     // Check if route has caching
-    const hasCache = path === '/products' || path === '/categories';
+    const hasCache = layer.route.stack.some((s: any) => s.handle?.name === 'cacheMiddleware');
     // Check if route has pagination
     const hasPagination = path === '/orders/my-orders' || path === '/admin/orders';
     // Check if route has search

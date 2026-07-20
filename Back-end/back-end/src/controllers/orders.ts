@@ -95,39 +95,34 @@ const validateOrderItems = async (items: OrderItemInput[]) => {
  */
 export const createOrder = async (req: AuthRequest, res: Response) => {
   try {
-    // 1. Validate Input using Zod
     const validation = orderSchema.safeParse(req.body);
     if (!validation.success) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid order data', 
-        errors: validation.error.format() 
-      });
+      return res.status(400).json({ success: false, errors: validation.error.format() });
     }
 
-    const { items, order_type, scheduled_for } = validation.data;
     const userId = req.user?.userId;
-
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
     const profile = await prisma.customerProfiles.findUnique({ where: { user_id: userId } });
-    if (!profile) return res.status(400).json({ success: false, message: 'Customer profile not found' });
+    if (!profile) return res.status(400).json({ success: false, message: 'Profile not found' });
 
-    // 2. Validate availability and stock
+    const { items, order_type, scheduled_for } = validation.data;
     const { validatedItems, validationErrors } = await validateOrderItems(items);
-    if (validationErrors.length > 0) return res.status(400).json({ success: false, errors: validationErrors });
+    
+    if (validationErrors.length > 0) {
+      return res.status(400).json({ success: false, errors: validationErrors });
+    }
 
     const totalPrice = validatedItems.reduce((sum, item) => sum + Number(item.subtotal), 0);
 
-    // 3. Database Transaction
     const result = await prisma.$transaction(async (tx) => {
       const order = await tx.orders.create({
         data: {
           customer_id: profile.id,
           total_price: totalPrice,
-          order_type: order_type,
+          order_type,
           scheduled_for: scheduled_for ? new Date(scheduled_for) : new Date(Date.now() + 3600000),
-          status_id: 1,
+          status_id: 1, // 'Pending'
           orderItems: {
             create: validatedItems.map((item: any) => ({
               product_id: item.product_id,
@@ -135,8 +130,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
               subtotal: item.subtotal
             }))
           }
-        },
-        include: { orderItems: true }
+        }
       });
 
       for (const item of validatedItems) {
@@ -148,7 +142,6 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       return order;
     });
 
-    // 4. Create Notification
     await prisma.notifications.create({
       data: {
         user_id: userId,
@@ -159,7 +152,6 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
 
     res.status(201).json({ success: true, data: result });
   } catch (error) {
-    console.error('Error creating order:', error);
     res.status(500).json({ success: false, message: 'Failed to create order' });
   }
 };
@@ -1459,48 +1451,54 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
 /**
  * Cancel order (User or Admin)
  */
+// PATCH /api/orders/:id/cancel
 export const cancelOrder = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const userId = req.user?.userId;
+    const { reason } = req.body; // Capture the new cancellation reason
 
     if (!id || !userId) {
       return res.status(400).json({ success: false, message: 'Invalid request' });
     }
 
+    // Include the relations required for logic checks
     const order = await prisma.orders.findUnique({
-      where: { id: id as string },
+      where: { id },
       include: { orderItems: true, status: true }
     });
 
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
-    // ✅ FIXED: Fetch user profile to match profile.id with order.customer_id
-    const profile = await prisma.customerProfiles.findUnique({
-      where: { user_id: userId }
-    });
-
+    // Permissions check
+    const profile = await prisma.customerProfiles.findUnique({ where: { user_id: userId } });
     const isAdmin = req.user?.role?.role_name === 'Admin';
     const isOwner = profile && order.customer_id === profile.id;
 
     if (!isAdmin && !isOwner) {
-      return res.status(403).json({ success: false, message: 'You do not have permission to cancel this order' });
+      return res.status(403).json({ success: false, message: 'Forbidden' });
     }
 
-    const cancellableStatuses = ['Pending', 'Unpaid', 'Preparing'];
-    if (!cancellableStatuses.includes(order.status.status_name)) {
-      return res.status(400).json({ success: false, message: `Cannot cancel in "${order.status.status_name}"` });
+    // State check
+    if (!['Pending', 'Unpaid', 'Preparing'].includes(order.status.status_name)) {
+      return res.status(400).json({ success: false, message: 'Cannot cancel order in current state' });
     }
 
     const cancelledStatus = await prisma.orderStatuses.findFirst({ where: { status_name: 'Cancelled' } });
-    if (!cancelledStatus) throw new Error('Status "Cancelled" not found');
+    if (!cancelledStatus) return res.status(500).json({ success: false, message: 'Status configuration error' });
 
+    // Transaction to update order, restore stock, and log the change
     await prisma.$transaction(async (tx) => {
+      // 1. Update Order Status and Reason
       await tx.orders.update({
-        where: { id: id as string },
-        data: { status_id: cancelledStatus.id }
+        where: { id },
+        data: { 
+          status_id: cancelledStatus.id,
+          cancellation_reason: reason || 'Customer requested cancellation' 
+        }
       });
 
+      // 2. Restore Stock
       for (const item of order.orderItems) {
         await tx.products.update({
           where: { id: item.product_id },
@@ -1508,10 +1506,20 @@ export const cancelOrder = async (req: AuthRequest, res: Response) => {
         });
       }
 
+      // 3. Optional: Log the status change
+      await tx.orderStatusLogs.create({
+        data: {
+          order_id: id,
+          old_status: order.status_id,
+          new_status: cancelledStatus.id
+        }
+      });
+
+      // 4. Notify
       await tx.notifications.create({
         data: {
-          user_id: userId, 
-          message: `Order #${id.slice(0, 8)} has been cancelled`,
+          user_id: userId,
+          message: `Order #${id.slice(0, 8)} has been cancelled.`,
           trigger_type: 'Order_Update'
         }
       });
@@ -1519,7 +1527,31 @@ export const cancelOrder = async (req: AuthRequest, res: Response) => {
 
     res.json({ success: true, message: 'Order cancelled successfully' });
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Cancel Order Error:', error);
     res.status(500).json({ success: false, message: 'Failed to cancel order' });
+  }
+};
+
+// POST /api/orders/guest
+export const createGuestOrder = async (req: Request, res: Response) => {
+  const { items, order_type, scheduled_for, customer_email, customer_phone } = req.body;
+  
+  try {
+    // 1. Calculate price and validate stock (use your validateOrderItems helper)
+    // 2. Create order without customer_id
+    const newOrder = await prisma.orders.create({
+      data: {
+        order_type: 'Guest',
+        customer_email,
+        customer_phone,
+        total_price: 0, // Calculate from items
+        scheduled_for: new Date(scheduled_for),
+        status_id: 1, // 'Pending'
+        orderItems: { create: items } 
+      }
+    });
+    res.status(201).json({ success: true, data: newOrder });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Guest order failed' });
   }
 };
