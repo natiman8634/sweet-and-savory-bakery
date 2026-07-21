@@ -113,7 +113,7 @@ export const getOrderConfirmationTemplate = (
     <p style="color: #666; font-size: 14px;">Questions? Contact us at +251-911-000-000</p>
   </div>
   <div class="footer">
-    <p>&copy; 2024 Sweet & Savory Bakery. All rights reserved.</p>
+    <p>&copy; 2026 Sweet & Savory Bakery. All rights reserved.</p>
   </div>
 </body>
 </html>
@@ -175,7 +175,7 @@ export const getOrderStatusUpdateTemplate = (
     <p style="margin-top: 20px; color: #666; font-size: 14px;">Questions? Contact us at +251-911-000-000</p>
   </div>
   <div class="footer">
-    <p>&copy; 2024 Sweet & Savory Bakery. All rights reserved.</p>
+    <p>&copy; 2026 Sweet & Savory Bakery. All rights reserved.</p>
   </div>
 </body>
 </html>
