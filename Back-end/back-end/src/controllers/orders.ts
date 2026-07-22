@@ -117,7 +117,6 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ success: false, errors: validationErrors });
     }
 
-    // ✅ FIX: Convert Decimal to number using Number()
     const totalPrice = validatedItems.reduce((sum, item) => Number(sum) + Number(item.subtotal), 0);
 
     const result = await prisma.$transaction(async (tx) => {
@@ -156,36 +155,41 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       }
     });
 
-    // ✅ 5. SEND ORDER CONFIRMATION EMAIL
+    // ✅ 5. SEND ORDER CONFIRMATION EMAIL (Debug Version)
     console.log('📧 Attempting to send order confirmation email...');
+    console.log('🔑 API KEY STATUS:', process.env.RESEND_API_KEY ? 'Key Found' : 'Key Missing');
+
     const user = await prisma.users.findUnique({
       where: { id: userId },
       include: { profile: true }
     });
 
-    console.log('📧 User found:', user?.email);
-    console.log('📧 User name:', user?.profile?.full_name);
+    // FORCE test email to bypass sandbox restrictions
+    const testEmail = 'natiman863400@gmail.com';
+    console.log('📧 Sending order confirmation to:', testEmail);
 
-    if (user?.email) {
-      console.log('📧 Sending order confirmation to:', user.email);
+    if (testEmail) {
       const customerName = user?.profile?.full_name || 'Customer';
       
-      // ✅ FIX: Convert Decimal to number using Number()
       sendOrderConfirmation(
-        user.email,
+        testEmail,
         customerName,
         result.id,
         result.orderItems,
         Number(result.total_price),
         result.order_type,
         result.scheduled_for
-      ).catch(error => console.error('❌ Email send error:', error));
+      ).catch(error => {
+        console.error('❌ Email send error:', error);
+        if (error.response) console.error('❌ Error response:', error.response.data);
+      });
     } else {
       console.log('❌ No user email found, skipping email');
     }
 
     res.status(201).json({ success: true, data: result });
   } catch (error) {
+    console.error('❌ Order Creation Error:', error);
     res.status(500).json({ success: false, message: 'Failed to create order' });
   }
 };
