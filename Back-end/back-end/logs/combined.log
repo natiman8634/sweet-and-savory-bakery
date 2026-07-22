@@ -3,7 +3,6 @@
 {"level":"info","message":"POST /api/auth/register 201 - 3656ms","timestamp":"2026-07-20T21:19:56.589Z"}
 {"level":"info","message":"POST /api/auth/register 201 - 4266ms","timestamp":"2026-07-20T21:30:07.138Z"}
 {"level":"info","message":"POST /api/auth/register 201 - 3145ms","timestamp":"2026-07-20T21:32:38.579Z"}
-<<<<<<< HEAD
 {"level":"info","message":"POST /api/orders 500 - 5296ms","timestamp":"2026-07-20T22:00:57.919Z"}
 {"level":"info","message":"POST /api/auth/login 200 - 3154ms","timestamp":"2026-07-20T22:03:05.085Z"}
 {"level":"info","message":"POST /api/orders 500 - 4187ms","timestamp":"2026-07-20T22:03:46.434Z"}
@@ -29,7 +28,6 @@
 {"level":"info","message":"POST /api/auth/login 401 - 2223ms","timestamp":"2026-07-21T19:37:49.597Z"}
 {"level":"info","message":"POST /api/auth/login 200 - 3592ms","timestamp":"2026-07-21T19:38:23.821Z"}
 {"level":"info","message":"POST /api/orders 201 - 5623ms","timestamp":"2026-07-21T19:39:15.114Z"}
-=======
 {"level":"info","message":"POST /api/auth/login 200 - 5104ms","timestamp":"2026-07-20T12:08:50.060Z"}
 {"level":"info","message":"POST /api/orders 400 - 3716ms","timestamp":"2026-07-20T12:09:26.119Z"}
 {"level":"info","message":"POST /api/orders 400 - 3073ms","timestamp":"2026-07-20T12:13:37.928Z"}
@@ -37,7 +35,6 @@
 {"level":"info","message":"POST /api/auth/login 200 - 4224ms","timestamp":"2026-07-20T12:15:30.997Z"}
 {"level":"info","message":"POST /api/orders 201 - 8477ms","timestamp":"2026-07-20T12:15:56.503Z"}
 {"level":"info","message":"POST /api/orders 201 - 6689ms","timestamp":"2026-07-20T12:43:11.375Z"}
->>>>>>> 38c259d17a8a0c50cf5e4b842eebf0e1b6267f2f
 {"level":"info","message":"POST /api/orders 201 - 6228ms","timestamp":"2026-07-21T19:44:36.602Z"}
 {"level":"info","message":"POST /api/orders 201 - 10748ms","timestamp":"2026-07-21T19:50:19.477Z"}
 {"level":"info","message":"POST /api/orders 201 - 6782ms","timestamp":"2026-07-21T20:03:23.091Z"}
