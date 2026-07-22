@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import type { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js'; 
+import bcrypt from 'bcrypt';  
 
 interface AuthRequest extends Request {
   user?: { userId: string };
@@ -99,5 +100,69 @@ export const deleteUser = async (req: Request, res: Response) => {
     res.json({ success: true, message: 'User soft-deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error deleting user' });
+  }
+};
+
+// 🆕 PATCH /api/users/change-password
+export const changePassword = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'Unauthorized' });
+  }
+
+  const { current_password, new_password } = req.body;
+
+  // Validate input
+  if (!current_password || !new_password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Both current_password and new_password are required'
+    });
+  }
+
+  if (new_password.length < 8) {
+    return res.status(400).json({
+      success: false,
+      message: 'New password must be at least 8 characters long'
+    });
+  }
+
+  try {
+    // Get user with current password
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      select: { password: true }
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(current_password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Current password is incorrect'
+      });
+    }
+
+    // Hash new password and update
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+    await prisma.users.update({
+      where: { id: userId },
+      data: { password: hashedPassword }
+    });
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to change password'
+    });
   }
 };

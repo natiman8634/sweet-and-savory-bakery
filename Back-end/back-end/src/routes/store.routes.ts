@@ -36,7 +36,7 @@ import {
 import { authenticate, adminAuth } from '../middleware/auth.js';
 import { getNotifications, markNotificationAsRead } from '../controllers/notifications.js';
 import { auditLogger } from '../middleware/auditLogger.js';
-import { getProfile, updateProfile } from '../controllers/users.js';
+import { getProfile, updateProfile, changePassword  } from '../controllers/users.js';
 import { globalLimiter, sensitiveLimiter } from '../middleware/rateLimiter.js';
 import { cacheMiddleware } from '../middleware/cache.js';
 
@@ -137,6 +137,7 @@ router.delete('/admin/cache', adminAuth, clearCache);
 router.get('/admin/cache/stats', adminAuth, getCacheStats);
 router.get('/users/profile', authenticate, getProfile);
 router.put('/users/profile', authenticate, validate(profileSchema), updateProfile);
+router.patch('/users/change-password', authenticate, changePassword);
 // ============================================
 // DEBUG: Log routes when router is created
 // ============================================

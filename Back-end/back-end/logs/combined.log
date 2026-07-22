@@ -41,3 +41,13 @@
 {"level":"info","message":"POST /api/orders 201 - 6228ms","timestamp":"2026-07-21T19:44:36.602Z"}
 {"level":"info","message":"POST /api/orders 201 - 10748ms","timestamp":"2026-07-21T19:50:19.477Z"}
 {"level":"info","message":"POST /api/orders 201 - 6782ms","timestamp":"2026-07-21T20:03:23.091Z"}
+{"level":"info","message":"POST /api/auth/login 200 - 4265ms","timestamp":"2026-07-21T20:26:28.591Z"}
+{"level":"info","message":"POST /api/orders 201 - 6992ms","timestamp":"2026-07-21T20:27:36.284Z"}
+{"level":"info","message":"POST /api/auth/login 200 - 6344ms","timestamp":"2026-07-22T18:05:41.185Z"}
+{"level":"info","message":"GET /api/users/profile 200 - 3499ms","timestamp":"2026-07-22T18:06:30.661Z"}
+{"level":"info","message":"PUT /api/users/profile 400 - 3889ms","timestamp":"2026-07-22T18:11:01.231Z"}
+{"level":"info","message":"PUT /api/users/profile 200 - 6275ms","timestamp":"2026-07-22T18:11:34.603Z"}
+{"level":"info","message":"PATCH /api/users/change-password 404 - 81ms","timestamp":"2026-07-22T18:14:11.090Z"}
+{"level":"info","message":"PATCH /api/users/change-password 200 - 3717ms","timestamp":"2026-07-22T18:24:46.365Z"}
+{"level":"info","message":"POST /api/auth/login 401 - 3465ms","timestamp":"2026-07-22T18:25:11.011Z"}
+{"level":"info","message":"POST /api/auth/login 200 - 4514ms","timestamp":"2026-07-22T18:25:27.279Z"}
