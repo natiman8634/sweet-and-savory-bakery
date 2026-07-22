@@ -25,7 +25,8 @@ import {
   cancelOrder,
   getOrderStats,
   exportOrdersCSV,
-  getDashboardData,  // 🟢 NEW: Task 1 - Dashboard
+  getDashboardData,
+   createGuestOrder,  // 🟢 NEW: Task 1 - Dashboard
 } from '../controllers/orders.js';
 import {
   createReview,
@@ -87,6 +88,9 @@ router.get('/products/:id/reviews', getProductReviews);
 // ============================================
 // Orders - User routes (specific routes first)
 router.post('/orders', authenticate, sensitiveLimiter, validate(orderSchema), createOrder);
+router.post('/orders/guest', createGuestOrder);
+
+
 // GET /api/orders/my-orders?page=1&limit=10&status=Pending
 router.get('/orders/my-orders', authenticate, getMyOrders);
 
