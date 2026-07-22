@@ -10,3 +10,8 @@
 {"level":"info","message":"POST /api/auth/login 200 - 4224ms","timestamp":"2026-07-20T12:15:30.997Z"}
 {"level":"info","message":"POST /api/orders 201 - 8477ms","timestamp":"2026-07-20T12:15:56.503Z"}
 {"level":"info","message":"POST /api/orders 201 - 6689ms","timestamp":"2026-07-20T12:43:11.375Z"}
+{"level":"info","message":"POST /api/auth/login 401 - 6236ms","timestamp":"2026-07-20T13:43:59.474Z"}
+{"level":"info","message":"POST /api/auth/login 401 - 4916ms","timestamp":"2026-07-20T13:44:18.900Z"}
+{"level":"info","message":"POST /api/auth/login 401 - 5867ms","timestamp":"2026-07-20T13:44:35.912Z"}
+{"level":"info","message":"POST /api/auth/login 200 - 4750ms","timestamp":"2026-07-20T13:45:03.341Z"}
+{"level":"info","message":"POST /api/orders 429 - 7723ms","timestamp":"2026-07-20T13:45:51.193Z"}
