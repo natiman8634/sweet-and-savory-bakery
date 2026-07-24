@@ -98,3 +98,12 @@
 {"level":"info","message":"DELETE /api/admin/users/87ebe78f-4d95-4490-8cfa-f3473ab4ed96 200 - 2282ms","timestamp":"2026-07-23T05:24:09.385Z"}
 {"level":"info","message":"DELETE /api/admin/users/3005276c-49f1-4a76-9a52-8cdca357950c 200 - 3071ms","timestamp":"2026-07-23T05:32:25.929Z"}
 >>>>>>> main
+{"level":"info","message":"GET /_next/webpack-hmr?id=J-8Qpyg9OO7xLUVscyj_D 404 - 283ms","timestamp":"2026-07-24T08:49:29.396Z"}
+{"level":"info","message":"GET /api/auth/session 404 - 220ms","timestamp":"2026-07-24T08:49:29.682Z"}
+{"level":"info","message":"GET /site.webmanifest 404 - 29ms","timestamp":"2026-07-24T08:49:29.734Z"}
+{"level":"info","message":"POST /api/auth/_log 404 - 258ms","timestamp":"2026-07-24T08:49:30.004Z"}
+{"level":"info","message":"POST /__nextjs_original-stack-frames 404 - 6ms","timestamp":"2026-07-24T08:49:30.021Z"}
+{"level":"info","message":"GET /apple-touch-icon.png 404 - 12ms","timestamp":"2026-07-24T08:49:30.054Z"}
+{"level":"info","message":"GET /_next/webpack-hmr?id=J-8Qpyg9OO7xLUVscyj_D 404 - 15ms","timestamp":"2026-07-24T08:49:30.379Z"}
+{"level":"info","message":"OPTIONS /api/auth/login 204 - 3ms","timestamp":"2026-07-24T08:51:10.010Z"}
+{"level":"info","message":"POST /api/auth/login 200 - 5333ms","timestamp":"2026-07-24T08:51:15.346Z"}
