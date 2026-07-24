@@ -25,7 +25,8 @@ import {
   cancelOrder,
   getOrderStats,
   exportOrdersCSV,
-  getDashboardData,  // 🟢 NEW: Task 1 - Dashboard
+  getDashboardData,
+  createGuestOrder,  // 🟢 NEW: Task 1 - Dashboard
 } from '../controllers/orders.js';
 import {
   createReview,
@@ -36,7 +37,14 @@ import {
 import { authenticate, adminAuth } from '../middleware/auth.js';
 import { getNotifications, markNotificationAsRead } from '../controllers/notifications.js';
 import { auditLogger } from '../middleware/auditLogger.js';
-import { getProfile, updateProfile } from '../controllers/users.js';
+import {
+  getProfile,
+  updateProfile,
+  changePassword,
+  getAllUsers,
+  updateUserRole,
+  deleteUser
+} from '../controllers/users.js';
 import { globalLimiter, sensitiveLimiter } from '../middleware/rateLimiter.js';
 import { cacheMiddleware } from '../middleware/cache.js';
 
@@ -75,7 +83,7 @@ router.get('/test', (req, res) => {
 // PUBLIC ROUTES (WITH CACHING 🟢 TASK 3)
 // ============================================
 // Products - Cached for 5 minutes
-router.get('/products', cacheMiddleware(300), getProducts);router.get('/products/:id', getProductById);
+router.get('/products', cacheMiddleware(300), getProducts); router.get('/products/:id', getProductById);
 
 // Categories - Cached for 5 minutes
 router.get('/categories', cacheMiddleware(300), getCategories);
@@ -87,6 +95,9 @@ router.get('/products/:id/reviews', getProductReviews);
 // ============================================
 // Orders - User routes (specific routes first)
 router.post('/orders', authenticate, sensitiveLimiter, validate(orderSchema), createOrder);
+router.post('/orders/guest', createGuestOrder);
+
+
 // GET /api/orders/my-orders?page=1&limit=10&status=Pending
 router.get('/orders/my-orders', authenticate, getMyOrders);
 
@@ -108,6 +119,10 @@ router.get('/orders/:id', authenticate, getOrderById);
 // ============================================
 // ADMIN ONLY ROUTES
 // ============================================
+router.get('/admin/users', adminAuth, getAllUsers);
+router.patch('/admin/users/:id/role', adminAuth, updateUserRole);
+router.delete('/admin/users/:id', adminAuth, deleteUser);
+
 // Product Management
 router.get('/admin/products', adminAuth, getAllProductsAdmin);
 router.post('/admin/products', adminAuth, createProduct);
@@ -137,6 +152,7 @@ router.delete('/admin/cache', adminAuth, clearCache);
 router.get('/admin/cache/stats', adminAuth, getCacheStats);
 router.get('/users/profile', authenticate, getProfile);
 router.put('/users/profile', authenticate, validate(profileSchema), updateProfile);
+router.patch('/users/change-password', authenticate, changePassword);
 // ============================================
 // DEBUG: Log routes when router is created
 // ============================================
@@ -146,7 +162,7 @@ router.stack.forEach((layer: any) => {
     const methods = Object.keys(layer.route.methods).join(', ').toUpperCase();
     const path = layer.route.path;
     // Check if route has middleware (authentication)
-    const hasAuth = layer.route.stack.some((s: any) => 
+    const hasAuth = layer.route.stack.some((s: any) =>
       s.handle?.name === 'authenticate' || s.handle?.name === 'adminAuth'
     );
     // Check if route has caching
@@ -159,7 +175,7 @@ router.stack.forEach((layer: any) => {
     const isDashboard = path === '/admin/dashboard';
     // Check if route is reviews
     const isReviews = path === '/products/:id/reviews' || path === '/reviews/my-reviews';
-    
+
     console.log(`  ${methods} /api${path} ${hasAuth ? '🔒' : '🌐'} ${hasCache ? '🟢 Cached' : ''} ${hasPagination ? '📄 Pagination' : ''} ${hasSearch ? '🔍 Search' : ''} ${isDashboard ? '📊 Dashboard' : ''} ${isReviews ? '⭐ Reviews' : ''}`);
   }
 });

@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 import { orderSchema } from '../utils/validators.js';
 import { sendOrderConfirmation, sendOrderStatusUpdate } from '../services/emailService.js';
+import bcrypt from 'bcrypt';
 
 // Extend Request type for authenticated requests
 interface AuthRequest extends Request {
@@ -1516,107 +1517,382 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
 /**
  * Cancel order (User or Admin)
  */
-// PATCH /api/orders/:id/cancel
+// src/controllers/orders.ts
+
+// PUT /api/orders/:id/cancel
 export const cancelOrder = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const userId = req.user?.userId;
-    const { reason } = req.body; // Capture the new cancellation reason
+    const { reason } = req.body;
 
+    // 1. Validate input
     if (!id || !userId) {
-      return res.status(400).json({ success: false, message: 'Invalid request' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid request. Order ID and User ID required.' 
+      });
     }
 
-    // Include the relations required for logic checks
+    // 2. Fetch order with required relations
     const order = await prisma.orders.findUnique({
       where: { id },
-      include: { orderItems: true, status: true }
+      include: { 
+        orderItems: true, 
+        status: true,
+        customer: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true
+              }
+            }
+          }
+        }
+      }
     });
 
-    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+    if (!order) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Order not found' 
+      });
+    }
 
-    // Permissions check
-    const profile = await prisma.customerProfiles.findUnique({ where: { user_id: userId } });
+    // 3. Check if order is already cancelled
+    if (order.status?.status_name === 'Cancelled') {
+      return res.status(400).json({
+        success: false,
+        message: 'Order is already cancelled'
+      });
+    }
+
+    // 4. Permission checks
+    // Get user's profile to check ownership
+    const profile = await prisma.customerProfiles.findUnique({ 
+      where: { user_id: userId } 
+    });
+
     const isAdmin = req.user?.role?.role_name === 'Admin';
+    const isStaff = req.user?.role?.role_name === 'Staff';
     const isOwner = profile && order.customer_id === profile.id;
 
-    if (!isAdmin && !isOwner) {
-      return res.status(403).json({ success: false, message: 'Forbidden' });
+    console.log('🔍 Permission Check:', {
+      userId,
+      orderCustomerId: order.customer_id,
+      userProfileId: profile?.id,
+      isAdmin,
+      isStaff,
+      isOwner,
+      orderStatus: order.status?.status_name
+    });
+
+    // ✅ ALLOW: Admin, Staff, or Order Owner
+    if (!isAdmin && !isStaff && !isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to cancel this order',
+        debug: {
+          userRole: req.user?.role?.role_name,
+          isAdmin,
+          isStaff,
+          isOwner,
+          orderCustomerId: order.customer_id,
+          userProfileId: profile?.id
+        }
+      });
     }
 
-    // State check
-    if (!['Pending', 'Unpaid', 'Preparing'].includes(order.status.status_name)) {
-      return res.status(400).json({ success: false, message: 'Cannot cancel order in current state' });
+    // 5. Check if order can be cancelled based on status
+    const cancellableStatuses = ['Pending', 'Unpaid', 'Preparing'];
+    const currentStatus = order.status?.status_name;
+
+    if (!cancellableStatuses.includes(currentStatus || '')) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot cancel order in "${currentStatus}" status. Only ${cancellableStatuses.join(', ')} orders can be cancelled.`
+      });
     }
 
-    const cancelledStatus = await prisma.orderStatuses.findFirst({ where: { status_name: 'Cancelled' } });
-    if (!cancelledStatus) return res.status(500).json({ success: false, message: 'Status configuration error' });
+    // 6. Get Cancelled status
+    const cancelledStatus = await prisma.orderStatuses.findFirst({ 
+      where: { status_name: 'Cancelled' } 
+    });
 
-    // Transaction to update order, restore stock, and log the change
+    if (!cancelledStatus) {
+      return res.status(500).json({
+        success: false,
+        message: 'System configuration error: Cancelled status not found'
+      });
+    }
+
+    // 7. Execute cancellation in transaction
     await prisma.$transaction(async (tx) => {
-      // 1. Update Order Status and Reason
+      // 7a. Update order status and reason
       await tx.orders.update({
         where: { id },
-        data: { 
+        data: {
           status_id: cancelledStatus.id,
-          cancellation_reason: reason || 'Customer requested cancellation' 
+          cancellation_reason: reason || 'Customer requested cancellation'
         }
       });
 
-      // 2. Restore Stock
+      // 7b. Restore stock quantities
       for (const item of order.orderItems) {
         await tx.products.update({
           where: { id: item.product_id },
-          data: { stock_quantity: { increment: item.quantity } }
+          data: {
+            stock_quantity: {
+              increment: item.quantity
+            }
+          }
         });
       }
 
-      // 3. Optional: Log the status change
-      await tx.orderStatusLogs.create({
-        data: {
-          order_id: id,
-          old_status: order.status_id,
-          new_status: cancelledStatus.id
-        }
-      });
+      // 7c. Log status change (if OrderStatusLogs model exists)
+      try {
+        await tx.orderStatusLogs.create({
+          data: {
+            order_id: id,
+            old_status: order.status_id,
+            new_status: cancelledStatus.id
+          }
+        });
+      } catch (logError) {
+        console.warn('⚠️ Failed to create status log:', logError);
+        // Continue even if logging fails
+      }
 
-      // 4. Notify
+      // 7d. Create notification
       await tx.notifications.create({
         data: {
           user_id: userId,
-          message: `Order #${id.slice(0, 8)} has been cancelled.`,
+          message: `Order #${id.slice(0, 8)} has been cancelled. ${reason ? `Reason: ${reason}` : ''}`,
           trigger_type: 'Order_Update'
         }
       });
     });
 
-    res.json({ success: true, message: 'Order cancelled successfully' });
+    // 8. Send cancellation email (if customer has email)
+    if (order.customer?.user?.email) {
+      try {
+        // Send email notification
+        const emailService = await import('../services/emailService.js');
+        await emailService.sendOrderStatusUpdate(
+          order.customer.user.email,
+          order.customer?.full_name || 'Customer',
+          order.id,
+          'Cancelled'
+        );
+      } catch (emailError) {
+        console.warn('⚠️ Failed to send cancellation email:', emailError);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Order cancelled successfully',
+      data: {
+        orderId: id,
+        status: 'Cancelled',
+        reason: reason || 'Customer requested cancellation',
+        cancelledBy: userId,
+        cancelledAt: new Date().toISOString()
+      }
+    });
+
   } catch (error) {
-    console.error('Cancel Order Error:', error);
-    res.status(500).json({ success: false, message: 'Failed to cancel order' });
+    console.error('❌ Cancel Order Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to cancel order',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
-// POST /api/orders/guest
+// POST /api/orders/guest - Create order without authentication
 export const createGuestOrder = async (req: Request, res: Response) => {
-  const { items, order_type, scheduled_for, customer_email, customer_phone } = req.body;
-  
   try {
-    // 1. Calculate price and validate stock (use your validateOrderItems helper)
-    // 2. Create order without customer_id
-    const newOrder = await prisma.orders.create({
-      data: {
-        order_type: 'Guest',
+    const { 
+      items, 
+      order_type, 
+      scheduled_for, 
+      customer_email, 
+      customer_phone,
+      customer_name 
+    } = req.body;
+
+    // 1. Validate required fields
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Items are required and must be an array'
+      });
+    }
+
+    if (!customer_email || !customer_phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Customer email and phone are required for guest orders'
+      });
+    }
+
+    // 2. Validate and process items
+    const { validatedItems, validationErrors } = await validateOrderItems(items);
+    
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        errors: validationErrors
+      });
+    }
+
+    // 3. Calculate total price
+    const totalPrice = validatedItems.reduce((sum, item) => 
+      Number(sum) + Number(item.subtotal), 0
+    );
+
+    // 4. Create order in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Check if guest user exists, if not create one
+      let guestUser = await tx.users.findFirst({
+        where: {
+          email: customer_email,
+          role: {
+            role_name: 'Customer'
+          }
+        }
+      });
+
+      // If no guest user exists, create one
+      if (!guestUser) {
+        // Check if this email exists as a registered user
+        const existingUser = await tx.users.findUnique({
+          where: { email: customer_email }
+        });
+
+        if (existingUser) {
+          // Email is registered - use existing user
+          guestUser = existingUser;
+        } else {
+          // Create new guest user with a dummy password
+          const dummyPassword = await bcrypt.hash('guest_' + Math.random().toString(36).slice(-8), 10);
+          guestUser = await tx.users.create({
+            data: {
+              email: customer_email,
+              password: dummyPassword,
+              role_id: 3, // Customer role
+              profile: {
+                create: {
+                  full_name: customer_name || 'Guest',
+                  phone: customer_phone,
+                  default_address: 'Guest Order'
+                }
+              }
+            }
+          });
+        }
+      }
+
+      // Get or create customer profile
+      let customerProfile = await tx.customerProfiles.findUnique({
+        where: { user_id: guestUser.id }
+      });
+
+      if (!customerProfile) {
+        customerProfile = await tx.customerProfiles.create({
+          data: {
+            user_id: guestUser.id,
+            full_name: customer_name || 'Guest',
+            phone: customer_phone,
+            default_address: 'Guest Order'
+          }
+        });
+      }
+
+      // Create the order
+      const order = await tx.orders.create({
+        data: {
+          customer_id: customerProfile.id,
+          customer_email: customer_email,
+          customer_phone: customer_phone,
+          total_price: totalPrice,
+          order_type: order_type || 'Pickup',
+          scheduled_for: scheduled_for ? new Date(scheduled_for) : new Date(Date.now() + 3600000),
+          status_id: 1, // 'Pending'
+          orderItems: {
+            create: validatedItems.map((item: any) => ({
+              product_id: item.product_id,
+              quantity: item.quantity,
+              subtotal: Number(item.subtotal)
+            }))
+          }
+        },
+        include: { 
+          orderItems: { 
+            include: { product: true } 
+          } 
+        }
+      });
+
+      // Update stock
+      for (const item of validatedItems) {
+        await tx.products.update({
+          where: { id: item.product_id },
+          data: { stock_quantity: { decrement: item.quantity } }
+        });
+      }
+
+      // Create notification for admins (optional)
+      await tx.notifications.create({
+        data: {
+          user_id: guestUser.id,
+          message: `Guest order #${order.id.slice(0, 8)} placed by ${customer_email}`,
+          trigger_type: 'Order_Update'
+        }
+      });
+
+      return order;
+    });
+
+    // 5. Send confirmation email to guest
+    if (customer_email) {
+      sendOrderConfirmation(
         customer_email,
-        customer_phone,
-        total_price: 0, // Calculate from items
-        scheduled_for: new Date(scheduled_for),
-        status_id: 1, // 'Pending'
-        orderItems: { create: items } 
+        customer_name || 'Guest',
+        result.id,
+        result.orderItems,
+        Number(result.total_price),
+        result.order_type,
+        result.scheduled_for
+      ).catch(error => console.error('❌ Guest email error:', error));
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Guest order created successfully',
+      data: {
+        orderId: result.id,
+        total: Number(result.total_price),
+        customer_email: customer_email,
+        order_type: result.order_type,
+        scheduled_for: result.scheduled_for,
+        items: result.orderItems.map(item => ({
+          product: item.product.name,
+          quantity: item.quantity,
+          subtotal: Number(item.subtotal)
+        }))
       }
     });
-    res.status(201).json({ success: true, data: newOrder });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Guest order failed' });
+    console.error('❌ Guest order error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create guest order',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
