@@ -12,39 +12,47 @@ const app = express();
 app.use(requestLogger);
 
 // ============================================
-// MIDDLEWARE
+// ✅ MIDDLEWARE - ORDER MATTERS!
 // ============================================
 
-// Security middleware
-app.use(helmet());
+// ✅ 1. CORS - MUST BE FIRST
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Length', 'X-Requested-With'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+}));
+
+// ✅ 3. Security middleware (after CORS)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+// ✅ 4. Rate limiting
 app.use('/api/', globalLimiter);
 app.use('/api/auth/login', sensitiveLimiter);
 app.use('/api/orders', sensitiveLimiter);
 
-// CORS middleware
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
-
-// Logging middleware (development only)
+// ✅ 5. Logging middleware (development only)
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// ✅ Body parsing middleware (CRITICAL - must be before routes)
+// ✅ 6. Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ✅ DEBUG: Log all requests to see what's coming in
+// ✅ 7. DEBUG: Log all requests
 app.use((req, res, next) => {
   console.log(`\n📨 ${req.method} ${req.path}`);
   console.log(`  Headers:`, {
     'content-type': req.headers['content-type'],
     'content-length': req.headers['content-length'],
-    'authorization': req.headers['authorization'] ? 'Bearer ***' : 'None'
+    'authorization': req.headers['authorization'] ? 'Bearer ***' : 'None',
+    'origin': req.headers['origin']
   });
   console.log(`  Body:`, req.body);
   console.log(`  Body type:`, typeof req.body);
@@ -79,11 +87,11 @@ app.get('/', (req, res) => {
       admin: '/api/admin',
       health: '/health'
     },
-    documentation: '/api/docs' // Optional
+    documentation: '/api/docs'
   });
 });
 
-// ✅ TEST ROUTE - Add this to test body parsing directly
+// ✅ TEST ROUTE
 app.post('/test-body', (req, res) => {
   console.log('✅ Test body received:', req.body);
   res.json({
@@ -102,7 +110,7 @@ app.use('/api', storeRoutes);
 // ERROR HANDLING
 // ============================================
 
-// 404 - Route not found (must come before error handler)
+// 404 - Route not found
 app.use((req: express.Request, res: express.Response) => {
   res.status(404).json({
     success: false,
@@ -120,7 +128,7 @@ app.use(errorHandler);
 // ============================================
 console.log('\n🚀 App configuration loaded:');
 console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`);
-console.log(`  CORS Origin: ${process.env.CORS_ORIGIN || '*'}`);
+console.log(`  CORS Origins: http://localhost:5173, http://localhost:3000`);
 console.log(`  Body Limit: 10mb`);
 console.log('  Routes:');
 console.log('    - /api/auth (Authentication)');
