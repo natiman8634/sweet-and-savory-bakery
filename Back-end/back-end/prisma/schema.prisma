@@ -90,6 +90,8 @@ model Orders {
   @@index([customer_id]) 
   @@index([status_id])   
   @@index([created_at])
+  @@index([customer_id, status_id])  // ✅ Add composite index
+  @@index([created_at, status_id])   // ✅ Add composite index
 }
 
 model OrderReturns {

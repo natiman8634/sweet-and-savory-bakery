@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import { login } from '../store/authSlice';
@@ -9,19 +9,37 @@ import { Input } from '../components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@bakery.com');
+  const [password, setPassword] = useState('Admin@123');
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { isLoading, error } = useSelector((state: RootState) => state.auth);
+  const { isLoading, error, isAuthenticated, user } = useSelector((state: RootState) => state.auth);
+
+  // ✅ Redirect based on user role after login
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const userRole = user?.role?.role_name || user?.role;
+      console.log('👤 User logged in:', user);
+      console.log('👑 User role:', userRole);
+      
+      if (userRole === 'Admin') {
+        toast.success('Welcome Admin!');
+        navigate('/admin/dashboard');
+      } else {
+        toast.success('Login successful!');
+        navigate('/');
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await dispatch(login({ email, password })).unwrap();
-      toast.success('Login successful!');
-      navigate('/');
+      const result = await dispatch(login({ email, password })).unwrap();
+      console.log('✅ Login result:', result);
+      // Redirect will happen in useEffect above
     } catch (err) {
+      console.error('❌ Login error:', err);
       toast.error(error || 'Invalid email or password');
     }
   };
@@ -65,6 +83,13 @@ export default function Login() {
                 className="mt-1"
               />
             </div>
+            
+            {error && (
+              <div className="text-red-500 text-sm text-center bg-red-50 p-2 rounded-lg">
+                ❌ {error}
+              </div>
+            )}
+            
             <Button
               type="submit"
               className="w-full bg-amber-600 hover:bg-amber-700"
@@ -72,6 +97,9 @@ export default function Login() {
             >
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
+            
+            
+            
             <p className="text-sm text-center text-gray-600 mt-4">
               Don't have an account?{' '}
               <Link to="/register" className="text-amber-600 hover:text-amber-700 font-medium">

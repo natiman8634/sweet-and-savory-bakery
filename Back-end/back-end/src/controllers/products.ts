@@ -217,7 +217,7 @@ export const getCategories = async (req: Request, res: Response) => {
 
     const formattedCategories = categories.map((category) => ({
       id: category.id,
-      name: category.category_name,
+      category_name: category.category_name,
       product_count: category.products.length,
     }));
 
@@ -440,12 +440,8 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    if (!description || !description.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Product description is required'
-      });
-    }
+    // Description is optional - default to empty string if not provided
+    const productDescription = description ? description.trim() : '';
 
     if (price === undefined || price < 0) {
       return res.status(400).json({
@@ -494,7 +490,7 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
     const product = await prisma.products.create({
       data: {
         name: name.trim(),
-        description: description.trim(),
+        description: productDescription,
         price: price,
         image_url: image_url || '',
         category_id: category_id,

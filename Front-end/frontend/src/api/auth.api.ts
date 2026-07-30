@@ -28,10 +28,21 @@ export interface User {
 
 export const authApi = {
   login: (credentials: LoginCredentials) =>
-    apiClient.post<{ token: string; message: string }>('/api/auth/login', credentials),
+    apiClient.post<{
+      user: { id: string; email: string; full_name: string; phone: string; default_address: string; role_id: number; role?: { id: number; role_name: string; } | undefined; } | null;
+      user: any;
+      user: { id: string; email: string; full_name: string; phone: string; default_address: string; role_id: number; role?: { id: number; role_name: string; } | undefined; } | null; token: string; message: string 
+}>('/api/auth/login', credentials),
 
   register: (data: RegisterData) =>
-    apiClient.post<{ message: string; userId: string }>('/api/auth/register', data),
+    apiClient.post<{
+      token: string | null;
+      user: { id: string; email: string; full_name: string; phone: string; default_address: string; role_id: number; role?: { id: number; role_name: string; } | undefined; } | null;
+      token: string;
+      user: any;
+      token: string | null;
+      user: { id: string; email: string; full_name: string; phone: string; default_address: string; role_id: number; role?: { id: number; role_name: string; } | undefined; } | null; message: string; userId: string 
+}>('/api/auth/register', data),
 
   getProfile: () =>
     apiClient.get<{ success: boolean; data: User }>('/api/users/profile'),
