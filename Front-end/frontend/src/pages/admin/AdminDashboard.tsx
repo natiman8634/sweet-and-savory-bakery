@@ -37,21 +37,21 @@ const AdminDashboard: React.FC = () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const todayOrders = orders.filter(order => 
+      const todayOrders = orders.filter(order =>
         new Date(order.created_at) >= today
       );
 
-      const pending = orders.filter(order => 
-        order.status.status_name === 'Pending' || 
+      const pending = orders.filter(order =>
+        order.status.status_name === 'Pending' ||
         order.status.status_name === 'Processing' ||
         order.status.status_name === 'Preparing'
       );
 
-      const completed = orders.filter(order => 
+      const completed = orders.filter(order =>
         order.status.status_name === 'Completed'
       );
 
-      const cancelled = orders.filter(order => 
+      const cancelled = orders.filter(order =>
         order.status.status_name === 'Cancelled'
       );
 
@@ -249,12 +249,11 @@ const AdminDashboard: React.FC = () => {
                   <span className="text-sm font-semibold">
                     ${Number(order.total_price).toFixed(2)}
                   </span>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    order.status.status_name === 'Completed' ? 'bg-green-100 text-green-800' :
-                    order.status.status_name === 'Cancelled' ? 'bg-red-100 text-red-800' :
-                    order.status.status_name === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
+                  <span className={`px-2 py-1 text-xs rounded-full ${order.status.status_name === 'Completed' ? 'bg-green-100 text-green-800' :
+                      order.status.status_name === 'Cancelled' ? 'bg-red-100 text-red-800' :
+                        order.status.status_name === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                    }`}>
                     {order.status.status_name}
                   </span>
                 </div>

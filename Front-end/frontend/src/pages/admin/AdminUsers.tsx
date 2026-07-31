@@ -82,7 +82,7 @@ const AdminUsers: React.FC = () => {
 
   // Filter users
   const filteredUsers = users.filter(user => {
-    const matchesSearch = 
+    const matchesSearch =
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (user.profile?.full_name || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = !selectedRole || user.role_id === parseInt(selectedRole);
@@ -100,7 +100,7 @@ const AdminUsers: React.FC = () => {
         { role_id: newRoleId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
+
       // Refresh users
       await fetchUsers();
       setShowRoleModal(false);
@@ -306,11 +306,10 @@ const AdminUsers: React.FC = () => {
                     {user.profile?.phone || 'N/A'}
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      user.role_id === 1 ? 'bg-red-100 text-red-800' :
-                      user.role_id === 2 ? 'bg-blue-100 text-blue-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${user.role_id === 1 ? 'bg-red-100 text-red-800' :
+                        user.role_id === 2 ? 'bg-blue-100 text-blue-800' :
+                          'bg-green-100 text-green-800'
+                      }`}>
                       {getRoleName(user.role_id)}
                     </span>
                   </td>

@@ -38,11 +38,11 @@ const AdminProducts: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [showLowStock, setShowLowStock] = useState(false);
-  
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     name: '',
@@ -53,7 +53,7 @@ const AdminProducts: React.FC = () => {
     image_url: '',
     category_id: 0
   });
-  
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
   const token = localStorage.getItem('token');
@@ -87,7 +87,7 @@ const AdminProducts: React.FC = () => {
       // ✅ Use the correct API endpoint
       const response = await axios.get('/api/categories');
       console.log('✅ Categories response:', response.data);
-      
+
       // ✅ Handle different response structures
       let categoriesData = [];
       if (response.data.data) {
@@ -95,7 +95,7 @@ const AdminProducts: React.FC = () => {
       } else if (Array.isArray(response.data)) {
         categoriesData = response.data;
       }
-      
+
       setCategories(categoriesData);
       console.log('📂 Categories set:', categoriesData);
     } catch (err) {
@@ -107,7 +107,7 @@ const AdminProducts: React.FC = () => {
   // Filter products
   const filteredProducts = Array.isArray(products) ? products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.description.toLowerCase().includes(searchTerm.toLowerCase());
+      product.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = !selectedCategory || product.category_id === parseInt(selectedCategory);
     const matchesLowStock = !showLowStock || product.stock_quantity < 10;
     return matchesSearch && matchesCategory && matchesLowStock;
@@ -174,7 +174,7 @@ const AdminProducts: React.FC = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      setProducts(products.map(p => 
+      setProducts(products.map(p =>
         p.id === editingProduct.id ? response.data.data : p
       ));
       setShowEditModal(false);
@@ -211,7 +211,7 @@ const AdminProducts: React.FC = () => {
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setProducts(products.map(p => 
+      setProducts(products.map(p =>
         p.id === id ? response.data.data : p
       ));
       setError(null);
@@ -338,11 +338,10 @@ const AdminProducts: React.FC = () => {
           </div>
           <button
             onClick={() => setShowLowStock(!showLowStock)}
-            className={`px-4 py-2 rounded-lg border transition-colors ${
-              showLowStock
+            className={`px-4 py-2 rounded-lg border transition-colors ${showLowStock
                 ? 'bg-yellow-100 border-yellow-400 text-yellow-800'
                 : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
-            }`}
+              }`}
           >
             {showLowStock ? '✅ Showing Low Stock' : '🔽 Filter Low Stock'}
           </button>
@@ -438,11 +437,10 @@ const AdminProducts: React.FC = () => {
                     {formatCurrency(product.price)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      product.stock_quantity === 0 ? 'bg-red-100 text-red-800' :
-                      product.stock_quantity < 10 ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${product.stock_quantity === 0 ? 'bg-red-100 text-red-800' :
+                        product.stock_quantity < 10 ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
+                      }`}>
                       {product.stock_quantity} units
                     </span>
                     {product.stock_quantity < 10 && product.stock_quantity > 0 && (
@@ -453,9 +451,8 @@ const AdminProducts: React.FC = () => {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      product.is_available ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${product.is_available ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
                       {product.is_available ? '🟢 Available' : '🔴 Unavailable'}
                     </span>
                   </td>
@@ -478,9 +475,8 @@ const AdminProducts: React.FC = () => {
                       </button>
                       <button
                         onClick={() => handleToggleAvailability(product.id, product.is_available)}
-                        className={`${
-                          product.is_available ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'
-                        }`}
+                        className={`${product.is_available ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'
+                          }`}
                       >
                         {product.is_available ? '🔴' : '🟢'}
                       </button>
@@ -629,22 +625,20 @@ const AdminProducts: React.FC = () => {
                       Product Availability
                     </label>
                     <p className="text-xs text-gray-500">
-                      {newProduct.is_available 
-                        ? '✅ Product will be visible to customers' 
+                      {newProduct.is_available
+                        ? '✅ Product will be visible to customers'
                         : '🔴 Product will be hidden from customers'}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setNewProduct({ ...newProduct, is_available: !newProduct.is_available })}
-                    className={`relative inline-flex items-center h-8 rounded-full w-16 transition-colors focus:outline-none ${
-                      newProduct.is_available ? 'bg-green-600' : 'bg-gray-300'
-                    }`}
+                    className={`relative inline-flex items-center h-8 rounded-full w-16 transition-colors focus:outline-none ${newProduct.is_available ? 'bg-green-600' : 'bg-gray-300'
+                      }`}
                   >
                     <span
-                      className={`inline-block h-6 w-6 transform transition-transform bg-white rounded-full shadow-lg ${
-                        newProduct.is_available ? 'translate-x-9' : 'translate-x-1'
-                      }`}
+                      className={`inline-block h-6 w-6 transform transition-transform bg-white rounded-full shadow-lg ${newProduct.is_available ? 'translate-x-9' : 'translate-x-1'
+                        }`}
                     />
                   </button>
                 </div>
