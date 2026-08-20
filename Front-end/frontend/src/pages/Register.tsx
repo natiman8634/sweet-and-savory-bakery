@@ -30,6 +30,7 @@ export default function Register() {
       await dispatch(register(formData)).unwrap();
       toast.success('Registration successful! Please login.');
       navigate('/login');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       toast.error(error || 'Registration failed');
     }
