@@ -80,15 +80,13 @@ const AdminProducts: React.FC = () => {
     }
   };
 
-  // ✅ FIX: Updated fetchCategories with correct API endpoint and error handling
+  // Updated fetchCategories with correct API endpoint and error handling
   const fetchCategories = async () => {
     try {
       console.log('📂 Fetching categories...');
-      // ✅ Use the correct API endpoint
       const response = await axios.get('/api/categories');
       console.log('✅ Categories response:', response.data);
 
-      // ✅ Handle different response structures
       let categoriesData = [];
       if (response.data.data) {
         categoriesData = response.data.data;
@@ -113,14 +111,14 @@ const AdminProducts: React.FC = () => {
     return matchesSearch && matchesCategory && matchesLowStock;
   }) : [];
 
-  // ✅ Handle Add New Product
+ 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
 
     try {
-      // ✅ Validate category is selected
+     
       if (!newProduct.category_id || newProduct.category_id === 0) {
         setError('Please select a category');
         setIsSubmitting(false);
@@ -153,7 +151,7 @@ const AdminProducts: React.FC = () => {
     }
   };
 
-  // ✅ Handle Update Product
+ 
   const handleUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
@@ -188,7 +186,7 @@ const AdminProducts: React.FC = () => {
     }
   };
 
-  // ✅ Handle Delete Product
+
   const handleDeleteProduct = async (id: string) => {
     try {
       await axios.delete(`/api/admin/products/${id}`, {
@@ -203,7 +201,7 @@ const AdminProducts: React.FC = () => {
     }
   };
 
-  // ✅ Handle Toggle Availability
+
   const handleToggleAvailability = async (id: string, _is_available: boolean) => {
     try {
       const response = await axios.patch(
@@ -221,35 +219,35 @@ const AdminProducts: React.FC = () => {
     }
   };
 
-  // ✅ Open Edit Modal
+ 
   const openEditModal = (product: Product) => {
     setEditingProduct({ ...product });
     setShowEditModal(true);
     setError(null);
   };
 
-  // ✅ Close Edit Modal
+ 
   const closeEditModal = () => {
     setShowEditModal(false);
     setEditingProduct(null);
     setError(null);
   };
 
-  // ✅ Open Add Modal
+  
   const openAddModal = () => {
     resetNewProductForm();
     setShowAddModal(true);
     setError(null);
   };
 
-  // ✅ Close Add Modal
+  
   const closeAddModal = () => {
     setShowAddModal(false);
     resetNewProductForm();
     setError(null);
   };
 
-  // ✅ Reset New Product Form
+  
   const resetNewProductForm = () => {
     setNewProduct({
       name: '',
@@ -495,7 +493,7 @@ const AdminProducts: React.FC = () => {
         </div>
       )}
 
-      {/* ✅ Add Product Modal with Category Dropdown Fix */}
+      {/*  Add Product Modal with Category Dropdown Fix */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
@@ -509,7 +507,7 @@ const AdminProducts: React.FC = () => {
               </button>
             </div>
 
-            {/* ✅ Debug info for categories */}
+            {/*  Debug info for categories */}
             <div className="text-xs text-gray-400 mb-4">
               Categories loaded: {categories.length}
               {categories.length === 0 && " (Check console for errors)"}
