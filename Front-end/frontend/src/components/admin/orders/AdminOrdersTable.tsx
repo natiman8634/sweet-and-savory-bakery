@@ -1,4 +1,3 @@
-// src/components/admin/orders/AdminOrdersTable.tsx
 import React from 'react';
 import type { Order } from '../../../types/order.types';
 import { formatDate, formatCurrency } from '../../../utils/orderUtils';

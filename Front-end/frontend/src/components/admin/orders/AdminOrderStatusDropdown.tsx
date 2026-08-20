@@ -1,4 +1,3 @@
-// src/components/admin/orders/AdminOrderStatusDropdown.tsx
 import React, { useState, useMemo } from 'react';
 import { STATUS_COLORS } from '../../../utils/orderUtils';
 import type { Order } from '../../../types/order.types';
@@ -9,16 +8,14 @@ interface AdminOrderStatusDropdownProps {
   loading?: boolean;
 }
 
-// Valid workflow: each status maps to its possible next statuses
-// Terminal statuses (Completed, Cancelled) have no transitions
 const STATUS_TRANSITIONS: Record<string, string[]> = {
   'Unpaid': ['Pending', 'Cancelled'],
   'Pending': ['Preparing', 'Cancelled'],
   'Preparing': ['Ready for Pickup', 'Cancelled'],
   'Ready for Pickup': ['Completed'],
   'Out for Delivery': ['Completed'],
-  'Completed': [],          // Terminal - no further transitions
-  'Cancelled': []           // Terminal - no further transitions
+  'Completed': [],          
+  'Cancelled': []           
 };
 
 const AdminOrderStatusDropdown: React.FC<AdminOrderStatusDropdownProps> = ({
@@ -30,7 +27,7 @@ const AdminOrderStatusDropdown: React.FC<AdminOrderStatusDropdownProps> = ({
   const [showConfirm, setShowConfirm] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState(order.status.status_name);
 
-  // Get valid next statuses based on current order status
+  
   const availableStatuses = useMemo(() => {
     const transitions = STATUS_TRANSITIONS[order.status.status_name];
     return transitions || [];

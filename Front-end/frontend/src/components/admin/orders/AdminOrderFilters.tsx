@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/components/admin/orders/AdminOrderFilters.tsx
 import React, { useState } from 'react';
 import type { AdminOrderFilters as Filters } from '../../../types/admin.types';
 
@@ -25,7 +24,7 @@ const AdminOrderFilters: React.FC<AdminOrderFiltersProps> = ({
     onFilterChange(localFilters);
   };
 
-  // ✅ Fixed: All options have the same structure
+  //  All options have the same structure
   const statusOptions: Array<{ label: string; value: string }> = [
     { label: 'All Orders', value: '' },
     { label: 'Pending', value: 'Pending' },
