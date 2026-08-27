@@ -72,7 +72,7 @@ export default function Orders() {
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-amber-800 mb-4">📋 My Orders</h1>
+        <h1 className="text-2xl font-bold text-amber-800 mb-4"> My Orders</h1>
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="h-32 bg-gray-200 rounded-xl animate-pulse"></div>
@@ -96,7 +96,6 @@ export default function Orders() {
   if (!orders || orders.length === 0) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
-        <div className="text-6xl mb-4">📦</div>
         <h2 className="text-2xl font-semibold text-gray-600">No orders yet</h2>
         <p className="text-gray-500 mt-2">Start shopping to place your first order!</p>
       </div>
@@ -105,7 +104,7 @@ export default function Orders() {
 
   return (
     <div className="container mx-auto px-4 py-4 max-w-lg pb-20">
-      <h1 className="text-2xl font-bold text-amber-800 mb-4">📋 My Orders</h1>
+      <h1 className="text-2xl font-bold text-amber-800 mb-4"> My Orders</h1>
       <div className="space-y-4">
         {orders.map((order) => (
           <Card key={order.id} className="overflow-hidden">

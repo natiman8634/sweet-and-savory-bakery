@@ -10,7 +10,8 @@ import {
   Settings, 
   HelpCircle, 
   Info,
-  LogOut 
+  LogOut,
+  Shield,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -26,7 +27,7 @@ export default function Profile() {
 
   // Get user initials
   const getInitials = () => {
-    if (!user) return '?';
+    if (!user?.profile?.full_name) return '?';
     return user.profile.full_name
       .split(' ')
       .map((n) => n[0])
@@ -37,14 +38,14 @@ export default function Profile() {
 
   // Profile menu items
   const menuItems = [
-    { icon: User, label: 'Informations personnelles', to: '/profile/personal' },
-    { icon: MapPin, label: 'Adresses enregistrées', to: '/profile/addresses' },
-    { icon: CreditCard, label: 'Moyens de paiement', to: '/profile/payments' },
-    { icon: ClipboardList, label: 'Historique des commandes', to: '/orders' },
-    { icon: Gift, label: 'Codes promo', to: '/profile/promos' },
-    { icon: Settings, label: 'Paramètres', to: '/profile/settings' },
-    { icon: HelpCircle, label: 'Aide et support', to: '/profile/help' },
-    { icon: Info, label: 'À propos de l\'application', to: '/profile/about' },
+    { icon: User, label: 'Personal Information', to: '/profile/personal' },
+    { icon: MapPin, label: 'Saved Addresses', to: '/profile/addresses' },
+    { icon: CreditCard, label: 'Payment Methods', to: '/profile/payments' },
+    { icon: ClipboardList, label: 'Order History', to: '/orders' },
+    { icon: Gift, label: 'Promo Codes', to: '/profile/promos' },
+    { icon: Settings, label: 'Settings', to: '/profile/settings' },
+    { icon: HelpCircle, label: 'Help & Support', to: '/profile/help' },
+    { icon: Info, label: 'About', to: '/profile/about' },
   ];
 
   if (!user) {
@@ -70,10 +71,14 @@ export default function Profile() {
               </AvatarFallback>
             </Avatar>
             <div>
-              <h2 className="text-xl font-semibold">{user.profile.full_name}</h2>
+              <h2 className="text-xl font-semibold">{user.profile?.full_name || 'User'}</h2>
               <p className="text-sm text-gray-500">{user.email}</p>
-              <p className="text-xs text-amber-600 mt-0.5">
-                {user.role === 'Admin' ? '🛡️ Administrateur' : '👤 Client'}
+              <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
+                {user.role === 'Admin' ? (
+                  <><Shield className="h-3 w-3" /> Admin</>
+                ) : (
+                  <><User className="h-3 w-3" /> Customer</>
+                )}
               </p>
             </div>
           </div>
@@ -100,7 +105,7 @@ export default function Profile() {
         className="w-full flex items-center gap-3 px-4 py-3 mt-4 rounded-lg hover:bg-red-50 transition-colors text-left text-red-600"
       >
         <LogOut className="h-5 w-5" />
-        <span className="text-sm font-medium">Se déconnecter</span>
+        <span className="text-sm font-medium">Logout</span>
       </button>
     </div>
   );

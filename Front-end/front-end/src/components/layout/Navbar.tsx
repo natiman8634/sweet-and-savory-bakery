@@ -5,6 +5,7 @@ import { Button } from '../ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -27,7 +28,7 @@ export default function Navbar() {
 
   // Get user initials for avatar
   const getInitials = () => {
-    if (!user) return '?';
+    if (!user?.profile?.full_name) return '?';
     return user.profile.full_name
       .split(' ')
       .map((n) => n[0])
@@ -75,33 +76,36 @@ export default function Navbar() {
           {/* Auth Section */}
           {user ? (
             <DropdownMenu>
-              <DropdownMenuTrigger >
-                <button className="flex items-center gap-2 hover:opacity-80 cursor-pointer">
+              <DropdownMenuTrigger
+                render={<button className="flex items-center gap-2 hover:opacity-80 cursor-pointer" />}
+              >
                   <Avatar className="h-8 w-8 bg-blue-100">
                     <AvatarFallback className="text-blue-700 text-sm font-medium">
                       {getInitials()}
                     </AvatarFallback>
                   </Avatar>
                   <span className="text-sm font-medium hidden lg:inline text-gray-700">
-                    {user.profile.full_name}
+                    {user.profile?.full_name || 'User'}
                   </span>
-                </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate('/profile')}>
-                  <User className="mr-2 h-4 w-4" /> Profile
-                </DropdownMenuItem>
-                {user.role === 'Admin' && (
-                  <DropdownMenuItem onClick={() => navigate('/admin/dashboard')}>
-                    <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                    <User className="mr-2 h-4 w-4" /> Profile
                   </DropdownMenuItem>
-                )}
+                  {user.role === 'Admin' && (
+                    <DropdownMenuItem onClick={() => navigate('/admin/dashboard')}>
+                      <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
-                  <LogOut className="mr-2 h-4 w-4" /> Logout
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" /> Logout
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
@@ -140,27 +144,6 @@ export default function Navbar() {
             </SheetTrigger>
             <SheetContent side="right" className="w-75 sm:w-100">
               <div className="flex flex-col gap-4 mt-8">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
-                  >
-                    <link.icon className="h-5 w-5" /> {link.label}
-                  </Link>
-                ))}
-                
-                {/* Cart link in mobile menu */}
-                <Link
-                  to="/cart"
-                  className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
-                >
-                  <ShoppingCart className="h-5 w-5" /> Cart
-                  {totalItems > 0 && (
-                    <Badge className="ml-2 bg-blue-600 text-white">{totalItems}</Badge>
-                  )}
-                </Link>
-
                 {user ? (
                   <>
                     <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
@@ -169,7 +152,7 @@ export default function Navbar() {
                           {getInitials()}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="font-medium text-gray-700">{user.profile.full_name}</span>
+                      <span className="font-medium text-gray-700">{user.profile?.full_name || 'User'}</span>
                     </div>
                     {user.role === 'Admin' && (
                       <>
@@ -217,10 +200,13 @@ export default function Navbar() {
                   </>
                 ) : (
                   <>
-                    <Link to="/login" className="text-lg font-medium text-gray-700 hover:text-blue-600">
+                    <div className="pt-4 border-t border-gray-200">
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Account</p>
+                    </div>
+                    <Link to="/login" className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600">
                       Login
                     </Link>
-                    <Link to="/register" className="text-lg font-medium text-blue-600 hover:text-blue-700">
+                    <Link to="/register" className="flex items-center gap-2 text-lg font-medium text-blue-600 hover:text-blue-700">
                       Sign Up
                     </Link>
                   </>

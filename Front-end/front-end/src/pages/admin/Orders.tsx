@@ -235,7 +235,7 @@ export default function AdminOrders() {
             <ShoppingBag className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800">📋 Manage Orders</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-800"> Manage Orders</h1>
             <p className="text-xs sm:text-sm text-gray-500">View and manage all your customer orders</p>
           </div>
         </div>

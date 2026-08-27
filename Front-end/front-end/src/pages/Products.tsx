@@ -20,7 +20,7 @@ export default function Products() {
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6 text-amber-800">🍞 Our Fresh Baked Goods</h1>
+        <h1 className="text-3xl font-bold mb-6 text-amber-800"> Our Fresh Baked Goods</h1>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {[...Array(8)].map((_, i) => (
             <div key={i} className="h-80 bg-gray-200 rounded-xl animate-pulse"></div>
@@ -61,7 +61,7 @@ export default function Products() {
   if (data.length === 0) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
-        <h2 className="text-2xl font-semibold text-gray-600">🍪 No products available yet</h2>
+        <h2 className="text-2xl font-semibold text-gray-600"> No products available yet</h2>
         <p className="text-gray-500 mt-2">Check back soon for fresh baked goods!</p>
       </div>
     );
@@ -71,7 +71,7 @@ export default function Products() {
    return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-amber-800">🍞 Our Fresh Baked Goods</h1>
+        <h1 className="text-3xl font-bold text-amber-800"> Our Fresh Baked Goods</h1>
         <Badge variant="outline" className="text-sm px-3 py-1">
           {data.length} items
         </Badge>

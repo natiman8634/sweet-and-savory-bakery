@@ -15,7 +15,7 @@ export default function Sidebar() {
   const location = useLocation();
 
   return (
-    <aside className="w-64 min-h-[calc(100vh-4rem)] bg-white border-r hidden lg:block p-4">
+    <aside className="w-64 h-[calc(100vh-4rem)] sticky top-16 bg-white border-r hidden lg:block p-4 overflow-y-auto">
       <div className="space-y-1">
         {sidebarLinks.map((link) => {
           const isActive = location.pathname === link.to ||
@@ -28,8 +28,8 @@ export default function Sidebar() {
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-amber-50 text-amber-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-amber-50 text-red-700'
+                  : 'text-gray-600 hover:bg-blue-50 hover:text-gray-900'
               )}
             >
               <link.icon className="h-5 w-5" />
