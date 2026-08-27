@@ -47,7 +47,7 @@ export default function Navbar() {
     <nav className="border-b border-gray-200 bg-white/95 backdrop-blur supports-backdrop-blur:bg-white/60 sticky top-0 z-50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 text-xl font-bold text-blue-700">
+        <Link to="/" className="flex items-center gap-2 text-xl font-bold text-red-700">
           Sweet & Savory
         </Link>
 
@@ -57,17 +57,17 @@ export default function Navbar() {
             <Link
               key={link.to}
               to={link.to}
-              className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
+              className="text-sm font-medium text-gray-700 hover:text-red-500 transition-colors"
             >
               {link.label}
             </Link>
           ))}
           
           {/* Cart Icon - Always visible, even for guests */}
-          <Link to="/cart" className="relative text-gray-700 hover:text-blue-600">
+          <Link to="/cart" className="relative text-gray-700 hover:text-red-600">
             <ShoppingCart className="h-5 w-5" />
             {totalItems > 0 && (
-              <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-blue-600 text-white border-2 border-white">
+              <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-600 text-white border-2 border-white">
                 {totalItems}
               </Badge>
             )}
@@ -130,7 +130,7 @@ export default function Navbar() {
           <Link to="/cart" className="relative text-gray-700">
             <ShoppingCart className="h-5 w-5" />
             {totalItems > 0 && (
-              <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-blue-600 text-white border-2 border-white">
+              <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-600 text-white border-2 border-white">
                 {totalItems}
               </Badge>
             )}
