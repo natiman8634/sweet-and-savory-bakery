@@ -1490,3 +1490,10 @@
 {"level":"info","message":"OPTIONS /api/admin/users?page=1&limit=10 204 - 1ms","timestamp":"2026-08-27T18:27:49.804Z"}
 {"level":"info","message":"GET /api/admin/users?page=1&limit=10 304 - 2060ms","timestamp":"2026-08-27T18:27:51.866Z"}
 {"level":"info","message":"GET /api/admin/users?page=1&limit=10 304 - 812ms","timestamp":"2026-08-27T18:27:52.680Z"}
+{"level":"info","message":"OPTIONS /api/products 204 - 0ms","timestamp":"2026-08-27T18:30:43.063Z"}
+{"level":"info","message":"OPTIONS /api/categories 204 - 1ms","timestamp":"2026-08-27T18:30:44.386Z"}
+{"level":"info","message":"OPTIONS /api/categories 204 - 1ms","timestamp":"2026-08-27T18:30:44.388Z"}
+{"level":"info","message":"GET /api/categories 200 - 918ms","timestamp":"2026-08-27T18:30:45.310Z"}
+{"level":"info","message":"GET /api/categories 304 - 1ms","timestamp":"2026-08-27T18:30:45.312Z"}
+{"level":"info","message":"GET /api/products 200 - 2668ms","timestamp":"2026-08-27T18:30:45.733Z"}
+{"level":"info","message":"GET /api/products 304 - 5ms","timestamp":"2026-08-27T18:30:45.740Z"}

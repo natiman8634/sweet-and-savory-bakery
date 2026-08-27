@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
@@ -7,7 +7,8 @@ import MobileBottomNav from './MobileBottomNav';
 
 export default function Layout() {
   const { user } = useAuth();
-  const isAdminRoute = window.location.pathname.startsWith('/admin');
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
   const showSidebar = user?.role === 'Admin' && isAdminRoute;
 
   return (

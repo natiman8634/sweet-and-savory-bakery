@@ -21,7 +21,6 @@ import {
   Truck,
   CreditCard,
   Headphones,
-  Store,
   Sandwich,
   IceCream,
   Martini,
@@ -29,6 +28,7 @@ import {
   EggFried,
   Apple,
   Croissant,
+  Star,
 } from 'lucide-react';
 import image from "./download__20_-removebg-preview.png";
 
@@ -51,19 +51,6 @@ const categoryIcons: Record<string, any> = {
   Cookies: Cookie,
   Breakfast: EggFried,
   Healthy: Apple,
-};
-
-const categoryColors: Record<string, string> = {
-  Breads: 'from-amber-500/10 to-amber-500/5 border-amber-200',
-  Pastries: 'from-pink-500/10 to-pink-500/5 border-pink-200',
-  Cakes: 'from-rose-500/10 to-rose-500/5 border-rose-200',
-  Pizza: 'from-red-500/10 to-red-500/5 border-red-200',
-  Burgers: 'from-orange-500/10 to-orange-500/5 border-orange-200',
-  Desserts: 'from-purple-500/10 to-purple-500/5 border-purple-200',
-  Sushi: 'from-emerald-500/10 to-emerald-500/5 border-emerald-200',
-  Drinks: 'from-blue-500/10 to-blue-500/5 border-blue-200',
-  Salads: 'from-green-500/10 to-green-500/5 border-green-200',
-  Coffee: 'from-amber-600/10 to-amber-600/5 border-amber-200',
 };
 
 // ============================================================
@@ -172,31 +159,64 @@ export default function Home() {
       {/* ============================================================
           CATEGORIES SECTION
           ============================================================ */}
-      <section className="py-12 bg-white">
+      <section className="py-12 sm:py-16 bg-white overflow-hidden">
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-800">Categories</h2>
-              <p className="text-sm text-gray-500">Browse by category</p>
+          {/* Section Title */}
+          <div className="text-center mb-10">
+            <h2 className="text-3xl sm:text-4xl font-bold text-red-500">Categories</h2>
+            <div className="flex items-center justify-center gap-1.5 mt-2">
+              <div className="w-8 h-0.5 bg-red-300 rounded-full" />
+              <div className="w-2 h-2 bg-red-400 rounded-full" />
+              <div className="w-2 h-2 bg-red-400 rounded-full" />
+              <div className="w-2 h-2 bg-red-400 rounded-full" />
+              <div className="w-8 h-0.5 bg-red-300 rounded-full" />
             </div>
-            <Link to="/products">
-              <Button variant="ghost" className="text-blue-600 hover:text-blue-700">
-                View All <ArrowRight className="ml-1 h-4 w-4" />
-              </Button>
-            </Link>
           </div>
 
           {categoriesLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-24 bg-gray-200 rounded-xl animate-pulse"></div>
+            <div className="flex gap-6 justify-center overflow-hidden px-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="w-40 h-48 bg-gray-200 rounded-3xl animate-pulse shrink-0"></div>
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="flex gap-4 sm:gap-6 justify-center flex-wrap px-4">
               {categories.slice(0, 6).map((category: any) => {
-                const Icon = categoryIcons[category.category_name] || Store;
-                const colorClass = categoryColors[category.category_name] || 'from-gray-500/10 to-gray-500/5 border-gray-200';
+                const bgColors: Record<string, string> = {
+                  Breads: '#fde68a',
+                  Pastries: '#fecdd3',
+                  Cakes: '#fce7f3',
+                  Pizza: '#fed7aa',
+                  Burgers: '#d9f99d',
+                  Desserts: '#e9d5ff',
+                  Sushi: '#bbf7d0',
+                  Drinks: '#bfdbfe',
+                  Salads: '#a7f3d0',
+                  Coffee: '#fde68a',
+                  Sandwiches: '#fed7aa',
+                  Cookies: '#fef3c7',
+                  Breakfast: '#fef9c3',
+                  Healthy: '#bbf7d0',
+                };
+                const categoryImages: Record<string, string> = {
+                  Breads: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=400&fit=crop',
+                  Pastries: 'https://i.pinimg.com/1200x/4f/61/58/4f6158f5f1fa889389645e749feede74.jpg',
+                  Cakes: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=400&fit=crop',
+                  Pizza: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=400&fit=crop',
+                  Burgers: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=400&fit=crop',
+                  Desserts: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?w=400&h=400&fit=crop',
+                  Sushi: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=400&h=400&fit=crop',
+                  Drinks: 'https://images.unsplash.com/photo-1544145945-f90425340c7e?w=400&h=400&fit=crop',
+                  Salads: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=400&fit=crop',
+                  Coffee: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=400&fit=crop',
+                  Sandwiches: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=400&h=400&fit=crop',
+                  Cookies: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=400&h=400&fit=crop',
+                  Breakfast: 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=400&h=400&fit=crop',
+                  Healthy: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&h=400&fit=crop',
+                };
+                const bgColor = bgColors[category.category_name] || '#e5e7eb';
+                const imageUrl = categoryImages[category.category_name] || 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=400&fit=crop';
+                const CategoryIcon = categoryIcons[category.category_name] || Cake;
 
                 return (
                   <Link
@@ -204,22 +224,45 @@ export default function Home() {
                     to={`/products?category=${category.id}`}
                     className="group"
                   >
-                    <Card className={`border-0 shadow-sm hover:shadow-md transition-all duration-300 group-hover:-translate-y-1 bg-linear-to-br ${colorClass}`}>
-                      <CardContent className="p-4 text-center">
-                        <div className="w-12 h-12 mx-auto rounded-full bg-white shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                          <Icon className="h-6 w-6 text-slate-700" />
-                        </div>
-                        <p className="text-sm font-medium text-slate-700 truncate">
+                    <div className="relative flex flex-col items-center">
+                      {/* Image overlapping from top */}
+                      <div className="relative z-10 w-28 h-28 sm:w-32 sm:h-32 -mb-6">
+                        <img
+                          src={imageUrl}
+                          alt={category.category_name}
+                          className="w-full h-full object-cover rounded-full border-4 border-white shadow-lg group-hover:scale-110 transition-transform duration-300"
+                        />
+                      </div>
+                      {/* Colored pill card */}
+                      <div
+                        className="relative w-36 sm:w-44 h-14 sm:h-16 rounded-full flex items-center justify-center shadow-md group-hover:shadow-xl transition-all duration-300"
+                        style={{ backgroundColor: bgColor }}
+                      >
+                        <CategoryIcon className="mr-2 h-5 w-5 text-slate-600" aria-hidden="true" />
+                        <span className="font-bold text-sm sm:text-base text-slate-700 group-hover:text-slate-900 transition-colors">
                           {category.category_name}
-                        </p>
-                        <p className="text-xs text-gray-400">{category.product_count || 0} items</p>
-                      </CardContent>
-                    </Card>
+                        </span>
+                      </div>
+                      {/* Hover overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                        <span className="bg-white text-red-500 text-xs font-bold px-4 py-1.5 rounded-full shadow-lg">
+                          Click Now
+                        </span>
+                      </div>
+                    </div>
                   </Link>
                 );
               })}
             </div>
           )}
+
+          <div className="text-center mt-8">
+            <Link to="/products">
+              <Button className="bg-red-500 hover:bg-red-600 text-white px-8">
+                View All Categories <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -230,7 +273,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-2xl font-bold text-slate-800">🔥 Popular Items</h2>
+              <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Flame className="h-5 w-5 text-red-500" /> Popular Items</h2>
               <p className="text-sm text-gray-500">Most loved by our customers</p>
             </div>
             <Link to="/products">
@@ -260,14 +303,14 @@ export default function Home() {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-4xl text-gray-300">
-                          🍞
+                          <Croissant className="h-12 w-12" />
                         </div>
                       )}
                       <Badge className="absolute top-3 left-3 bg-amber-500 hover:bg-amber-600 text-white border-0">
                         <Flame className="h-3 w-3 mr-1" /> Popular
                       </Badge>
                       <Badge className="absolute bottom-3 left-3 bg-white/90 text-slate-700 border-0 backdrop-blur-sm">
-                        ⭐ {product.averageRating?.toFixed(1) || '0.0'} ({product.reviewsCount || 0})
+                        <Star className="h-3 w-3 fill-amber-400 text-amber-400 inline" /> {product.averageRating?.toFixed(1) || '0.0'} ({product.reviewsCount || 0})
                       </Badge>
                     </div>
                     <CardContent className="p-4">
@@ -310,7 +353,7 @@ export default function Home() {
             <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
               <div>
                 <Badge className="mb-3 bg-white/20 text-white border-0 hover:bg-white/30 backdrop-blur-sm px-4 py-1.5 text-sm">
-                  🔥 Hot Deal
+                  <Flame className="h-4 w-4 inline mr-1" /> Hot Deal
                 </Badge>
                 <h2 className="text-3xl md:text-4xl font-bold">30% OFF</h2>
                 <p className="text-amber-100 text-lg mt-1">on all orders over $25</p>

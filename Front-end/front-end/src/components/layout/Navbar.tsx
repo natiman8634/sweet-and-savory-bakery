@@ -12,7 +12,7 @@ import {
 } from '../ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
-import { Menu, ShoppingCart, Home, Package, LogOut, User, LayoutDashboard } from 'lucide-react';
+import { Menu, ShoppingCart, Home, Package, LogOut, User, LayoutDashboard, ShoppingBag, Users, Star } from 'lucide-react';
 import { Badge } from '../ui/badge';
 
 export default function Navbar() {
@@ -172,12 +172,41 @@ export default function Navbar() {
                       <span className="font-medium text-gray-700">{user.profile.full_name}</span>
                     </div>
                     {user.role === 'Admin' && (
-                      <Link 
-                        to="/admin/dashboard" 
-                        className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
-                      >
-                        <LayoutDashboard className="h-5 w-5" /> Dashboard
-                      </Link>
+                      <>
+                        <div className="pt-4 border-t border-gray-200">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Admin Panel</p>
+                        </div>
+                        <Link
+                          to="/admin/dashboard"
+                          className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
+                        >
+                          <LayoutDashboard className="h-5 w-5" /> Dashboard
+                        </Link>
+                        <Link
+                          to="/admin/products"
+                          className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
+                        >
+                          <Package className="h-5 w-5" /> Products
+                        </Link>
+                        <Link
+                          to="/admin/orders"
+                          className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
+                        >
+                          <ShoppingBag className="h-5 w-5" /> Orders
+                        </Link>
+                        <Link
+                          to="/admin/users"
+                          className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
+                        >
+                          <Users className="h-5 w-5" /> Users
+                        </Link>
+                        <Link
+                          to="/admin/reviews"
+                          className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
+                        >
+                          <Star className="h-5 w-5" /> Reviews
+                        </Link>
+                      </>
                     )}
                     <button
                       onClick={handleLogout}

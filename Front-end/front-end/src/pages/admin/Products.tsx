@@ -66,6 +66,8 @@ import {
   CheckCircle,
   XCircle,
   Filter,
+  Star,
+  AlertTriangle,
 } from 'lucide-react';
 
 // ============================================================
@@ -416,7 +418,7 @@ export default function AdminProducts() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm text-gray-600">
-                          ⭐ {product.averageRating?.toFixed(1) || '0.0'} ({product.reviewsCount || 0})
+                          <Star className="h-3 w-3 fill-amber-400 text-amber-400 inline" /> {product.averageRating?.toFixed(1) || '0.0'} ({product.reviewsCount || 0})
                         </TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
@@ -522,7 +524,7 @@ export default function AdminProducts() {
               Are you sure you want to delete <strong>{selectedProduct?.name}</strong>?
               {selectedProduct?.orderItems?.length > 0 && (
                 <span className="block mt-2 text-amber-600">
-                  ⚠️ This product has {selectedProduct.orderItems.length} associated orders.
+                  <AlertTriangle className="h-4 w-4 inline mr-1" /> This product has {selectedProduct.orderItems.length} associated orders.
                   It will be deactivated instead of permanently deleted.
                 </span>
               )}
