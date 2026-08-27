@@ -45,7 +45,7 @@ import {
   updateUserRole,
   deleteUser
 } from '../controllers/users.js';
-import { globalLimiter, sensitiveLimiter } from '../middleware/rateLimiter.js';
+import { sensitiveLimiter } from '../middleware/rateLimiter.js';
 import { cacheMiddleware } from '../middleware/cache.js';
 
 const router = express.Router();
@@ -53,7 +53,7 @@ const router = express.Router();
 // Apply audit logger to all routes
 router.use(auditLogger);
 
-router.use(globalLimiter);
+
 
 // ============================================
 // TEST ROUTE

@@ -11,7 +11,7 @@ export const cacheMiddleware = (duration: number) => {
     const cachedData = cache.get(key);
 
     if (cachedData) {
-      return res.json({ success: true, data: cachedData, cached: true });
+      return res.json(cachedData);
     }
 
     // Intercept res.json to store in cache

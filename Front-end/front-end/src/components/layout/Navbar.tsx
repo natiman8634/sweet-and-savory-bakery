@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
 import { Button } from '../ui/button';
 import {
   DropdownMenu,
@@ -16,6 +17,7 @@ import { Badge } from '../ui/badge';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { totalItems } = useCart();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -41,11 +43,10 @@ export default function Navbar() {
   ];
 
   return (
-    <nav className="border-b bg-white/95 backdrop-blur supports-backdrop-blur:bg-white/60 sticky top-0 z-50">
+    <nav className="border-b border-gray-200 bg-white/95 backdrop-blur supports-backdrop-blur:bg-white/60 sticky top-0 z-50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 text-xl font-bold text-amber-800">
-          <span className="text-2xl">🍰</span>
+        <Link to="/" className="flex items-center gap-2 text-xl font-bold text-blue-700">
           Sweet & Savory
         </Link>
 
@@ -55,31 +56,33 @@ export default function Navbar() {
             <Link
               key={link.to}
               to={link.to}
-              className="text-sm font-medium text-gray-700 hover:text-amber-700 transition-colors"
+              className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
             >
               {link.label}
             </Link>
           ))}
           
-          {/* Cart Icon */}
-          <Link to="/cart" className="relative text-gray-700 hover:text-amber-700">
+          {/* Cart Icon - Always visible, even for guests */}
+          <Link to="/cart" className="relative text-gray-700 hover:text-blue-600">
             <ShoppingCart className="h-5 w-5" />
-            <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-amber-700">
-              0
-            </Badge>
+            {totalItems > 0 && (
+              <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-blue-600 text-white border-2 border-white">
+                {totalItems}
+              </Badge>
+            )}
           </Link>
 
           {/* Auth Section */}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger >
-                <button className="flex items-center gap-2 hover:opacity-80">
-                  <Avatar className="h-8 w-8 bg-amber-100">
-                    <AvatarFallback className="text-amber-800 text-sm font-medium">
+                <button className="flex items-center gap-2 hover:opacity-80 cursor-pointer">
+                  <Avatar className="h-8 w-8 bg-blue-100">
+                    <AvatarFallback className="text-blue-700 text-sm font-medium">
                       {getInitials()}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm font-medium hidden lg:inline">
+                  <span className="text-sm font-medium hidden lg:inline text-gray-700">
                     {user.profile.full_name}
                   </span>
                 </button>
@@ -96,7 +99,7 @@ export default function Navbar() {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" /> Logout
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -104,10 +107,14 @@ export default function Navbar() {
           ) : (
             <div className="flex items-center gap-2">
               <Link to="/login">
-                <Button variant="ghost" size="sm">Login</Button>
+                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-600">
+                  Login
+                </Button>
               </Link>
               <Link to="/register">
-                <Button size="sm" className="bg-amber-700 hover:bg-amber-800">Sign Up</Button>
+                <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700">
+                  Sign Up
+                </Button>
               </Link>
             </div>
           )}
@@ -115,57 +122,76 @@ export default function Navbar() {
 
         {/* Mobile Menu */}
         <div className="md:hidden flex items-center gap-2">
+          {/* Cart Icon - Always visible */}
           <Link to="/cart" className="relative text-gray-700">
             <ShoppingCart className="h-5 w-5" />
-            <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-amber-700">
-              0
-            </Badge>
+            {totalItems > 0 && (
+              <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-blue-600 text-white border-2 border-white">
+                {totalItems}
+              </Badge>
+            )}
           </Link>
+
           <Sheet>
             <SheetTrigger >
               <Button variant="ghost" size="icon">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-75 sm:w-100px">
+            <SheetContent side="right" className="w-75 sm:w-100">
               <div className="flex flex-col gap-4 mt-8">
                 {navLinks.map((link) => (
                   <Link
                     key={link.to}
                     to={link.to}
-                    className="flex items-center gap-2 text-lg font-medium hover:text-amber-700"
+                    className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
                   >
                     <link.icon className="h-5 w-5" /> {link.label}
                   </Link>
                 ))}
+                
+                {/* Cart link in mobile menu */}
+                <Link
+                  to="/cart"
+                  className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
+                >
+                  <ShoppingCart className="h-5 w-5" /> Cart
+                  {totalItems > 0 && (
+                    <Badge className="ml-2 bg-blue-600 text-white">{totalItems}</Badge>
+                  )}
+                </Link>
+
                 {user ? (
                   <>
-                    <div className="flex items-center gap-2 pt-4 border-t">
-                      <Avatar className="h-8 w-8 bg-amber-100">
-                        <AvatarFallback className="text-amber-800">
+                    <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
+                      <Avatar className="h-8 w-8 bg-blue-100">
+                        <AvatarFallback className="text-blue-700">
                           {getInitials()}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="font-medium">{user.profile.full_name}</span>
+                      <span className="font-medium text-gray-700">{user.profile.full_name}</span>
                     </div>
                     {user.role === 'Admin' && (
-                      <Link to="/admin/dashboard" className="flex items-center gap-2 text-lg font-medium hover:text-amber-700">
+                      <Link 
+                        to="/admin/dashboard" 
+                        className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
+                      >
                         <LayoutDashboard className="h-5 w-5" /> Dashboard
                       </Link>
                     )}
                     <button
                       onClick={handleLogout}
-                      className="flex items-center gap-2 text-lg font-medium text-red-600 hover:text-red-700"
+                      className="flex items-center gap-2 text-lg font-medium text-red-600 hover:text-red-700 text-left"
                     >
                       <LogOut className="h-5 w-5" /> Logout
                     </button>
                   </>
                 ) : (
                   <>
-                    <Link to="/login" className="text-lg font-medium hover:text-amber-700">
+                    <Link to="/login" className="text-lg font-medium text-gray-700 hover:text-blue-600">
                       Login
                     </Link>
-                    <Link to="/register" className="text-lg font-medium text-amber-700">
+                    <Link to="/register" className="text-lg font-medium text-blue-600 hover:text-blue-700">
                       Sign Up
                     </Link>
                   </>

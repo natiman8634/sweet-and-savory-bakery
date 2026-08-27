@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingBag, Users, Home } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingBag, Users, Star } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 const sidebarLinks = [
@@ -7,7 +7,8 @@ const sidebarLinks = [
   { to: '/admin/products', label: 'Products', icon: Package },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingBag },
   { to: '/admin/users', label: 'Users', icon: Users },
-  { to: '/', label: 'Back to Shop', icon: Home },
+  { to: '/admin/reviews', label: 'Reviews', icon: Star },
+
 ];
 
 export default function Sidebar() {
@@ -17,9 +18,9 @@ export default function Sidebar() {
     <aside className="w-64 min-h-[calc(100vh-4rem)] bg-white border-r hidden lg:block p-4">
       <div className="space-y-1">
         {sidebarLinks.map((link) => {
-          const isActive = location.pathname === link.to || 
+          const isActive = location.pathname === link.to ||
             (link.to !== '/' && location.pathname.startsWith(link.to));
-          
+
           return (
             <Link
               key={link.to}

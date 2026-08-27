@@ -55,7 +55,7 @@ model Products {
   stock_quantity Int
   is_available Boolean @default(true)
   orderItems   OrderItems[]
-  reviews      ProductReviews[]  // 🟢 NEW: Relation to reviews
+  reviews      ProductReviews[]  
   deleted_at   DateTime?
 
   @@index([category_id]) 
@@ -90,8 +90,8 @@ model Orders {
   @@index([customer_id]) 
   @@index([status_id])   
   @@index([created_at])
-  @@index([customer_id, status_id])  // ✅ Add composite index
-  @@index([created_at, status_id])   // ✅ Add composite index
+  @@index([customer_id, status_id])  
+  @@index([created_at, status_id])   
 }
 
 model OrderReturns {

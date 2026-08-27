@@ -84,3 +84,44 @@ export interface RegisterData {
   phone?: string;
   default_address?: string;
 }
+
+// ============================================================
+// 🛒 CART TYPES
+// ============================================================
+export interface CartItem {
+  productId: string;
+  name: string;
+  price: number;
+  image_url: string;
+  quantity: number;
+  maxStock: number; // to prevent exceeding stock
+}
+
+export interface CartState {
+  items: CartItem[];
+  totalItems: number;
+  totalPrice: number;
+}
+
+// ... existing types ...
+
+export interface Order {
+  id: string;
+  total_price: number;
+  order_type: 'Pickup' | 'Delivery';
+  scheduled_for: string;
+  status: { id: number; status_name: string };
+  orderItems: OrderItem[];
+  payment?: Payment;
+  created_at: string;
+  // ✅ ADD THESE FIELDS (matches backend response)
+  customer?: {
+    id: string;
+    full_name: string;
+    phone: string;
+    default_address: string;
+    user?: { email: string };
+  };
+  customer_email?: string;
+  customer_phone?: string;
+}

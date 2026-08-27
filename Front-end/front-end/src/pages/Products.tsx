@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getProducts } from '../api/productApi';
+import { useCart } from '../context/CartContext';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -10,6 +11,8 @@ export default function Products() {
     queryKey: ['products'],
     queryFn: getProducts,
   });
+
+   const { addItem } = useCart();
 
   console.log('📦 Data from API:', data);
 
@@ -65,7 +68,7 @@ export default function Products() {
   }
 
   // 5. Success State
-  return (
+   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-amber-800">🍞 Our Fresh Baked Goods</h1>
@@ -116,6 +119,13 @@ export default function Products() {
                 size="sm" 
                 className="bg-amber-700 hover:bg-amber-800 gap-2"
                 disabled={product.stock_quantity === 0}
+                onClick={() => addItem({
+                  id: product.id,
+                  name: product.name,
+                  price: Number(product.price),
+                  image_url: product.image_url,
+                  stock_quantity: product.stock_quantity,
+                })}
               >
                 <ShoppingCart className="w-4 h-4" /> Add
               </Button>

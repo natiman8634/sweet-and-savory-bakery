@@ -7,9 +7,11 @@ import storeRoutes from './routes/store.routes.js';
 import { globalLimiter, sensitiveLimiter } from './middleware/rateLimiter.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/logger.js';
+import compression from 'compression';
 
 const app = express();
 app.use(requestLogger);
+app.use(compression());
 
 // ============================================
 // ✅ MIDDLEWARE - ORDER MATTERS!
