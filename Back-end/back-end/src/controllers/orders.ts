@@ -111,7 +111,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     const profile = await prisma.customerProfiles.findUnique({ where: { user_id: userId } });
     if (!profile) return res.status(400).json({ success: false, message: 'Profile not found' });
 
-    const { items, order_type, scheduled_for } = validation.data;
+    const { items, order_type, scheduled_for, payment_method } = validation.data;
     const { validatedItems, validationErrors } = await validateOrderItems(items);
     
     if (validationErrors.length > 0) {
@@ -138,6 +138,18 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
         },
         include: { orderItems: { include: { product: true } } }
       });
+
+      // Record selected payment method as a pending payment
+      if (payment_method) {
+        await tx.payments.create({
+          data: {
+            order_id: order.id,
+            amount: totalPrice,
+            payment_method,
+            payment_status: 'Pending',
+          }
+        });
+      }
 
       for (const item of validatedItems) {
         await tx.products.update({
@@ -566,6 +578,7 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
       fromDate,                              
       toDate,                                
       customer_id,
+      search,
       sortBy = 'created_at',
       sortOrder = 'desc'
     } = req.query;
@@ -592,12 +605,8 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
       
       if (statusRecord) {
         where.status_id = statusRecord.id;
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid status: ${status}.`
-        });
       }
+      // If status not found, return empty results (don't break with 400)
     }
 
     // Dynamic Filter: Specific Day Window
@@ -640,6 +649,31 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
 
     if (customer_id) {
       where.customer_id = customer_id as string;
+    }
+
+    // Dynamic Filter: Search by order ID, customer name, or email
+    if (search) {
+      const searchTerm = search as string;
+      where.OR = [
+        // Search by order ID (partial match)
+        { id: { contains: searchTerm, mode: 'insensitive' } },
+        // Search by customer email on order
+        { customer_email: { contains: searchTerm, mode: 'insensitive' } },
+        // Search by customer profile full_name
+        {
+          customer: {
+            full_name: { contains: searchTerm, mode: 'insensitive' }
+          }
+        },
+        // Search by customer user email
+        {
+          customer: {
+            user: {
+              email: { contains: searchTerm, mode: 'insensitive' }
+            }
+          }
+        }
+      ];
     }
 
     const orderBy: any = {};
@@ -1182,6 +1216,127 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
     const totalOrders = todayStats._count || 0;
     const averageOrderValue = todayStats._avg.total_price ? Number(todayStats._avg.total_price) : 0;
 
+    // 7. Weekly comparison (this week vs last week)
+    const thisWeekStart = new Date(today);
+    thisWeekStart.setDate(thisWeekStart.getDate() - thisWeekStart.getDay()); // Sunday
+    const lastWeekStart = new Date(thisWeekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+    const lastWeekEnd = new Date(thisWeekStart);
+    lastWeekEnd.setTime(lastWeekEnd.getTime() - 1);
+
+    const [thisWeekStats, lastWeekStats, thisWeekNewCustomers, lastWeekNewCustomers] = await Promise.all([
+      prisma.orders.aggregate({
+        where: {
+          created_at: { gte: thisWeekStart, lt: tomorrow },
+          status: { status_name: { notIn: ['Cancelled', 'Unpaid'] } }
+        },
+        _count: true,
+        _sum: { total_price: true },
+        _avg: { total_price: true }
+      }),
+      prisma.orders.aggregate({
+        where: {
+          created_at: { gte: lastWeekStart, lt: thisWeekStart },
+          status: { status_name: { notIn: ['Cancelled', 'Unpaid'] } }
+        },
+        _count: true,
+        _sum: { total_price: true },
+        _avg: { total_price: true }
+      }),
+      // New customers this week (customers whose first order was this week)
+      prisma.$queryRaw`
+        SELECT COUNT(DISTINCT o."customer_id") as count
+        FROM "Orders" o
+        WHERE o."customer_id" IS NOT NULL
+        AND o."created_at" >= ${thisWeekStart}
+        AND o."created_at" < ${tomorrow}
+        AND o."customer_id" NOT IN (
+          SELECT DISTINCT o2."customer_id" FROM "Orders" o2
+          WHERE o2."customer_id" IS NOT NULL
+          AND o2."created_at" < ${thisWeekStart}
+        )
+      `,
+      // New customers last week
+      prisma.$queryRaw`
+        SELECT COUNT(DISTINCT o."customer_id") as count
+        FROM "Orders" o
+        WHERE o."customer_id" IS NOT NULL
+        AND o."created_at" >= ${lastWeekStart}
+        AND o."created_at" < ${thisWeekStart}
+        AND o."customer_id" NOT IN (
+          SELECT DISTINCT o2."customer_id" FROM "Orders" o2
+          WHERE o2."customer_id" IS NOT NULL
+          AND o2."created_at" < ${lastWeekStart}
+        )
+      `
+    ]);
+
+    const thisWeekOrders = thisWeekStats._count || 0;
+    const lastWeekOrders = lastWeekStats._count || 0;
+    const thisWeekRevenue = Number(thisWeekStats._sum.total_price || 0);
+    const lastWeekRevenue = Number(lastWeekStats._sum.total_price || 0);
+    const thisWeekAvg = thisWeekStats._avg.total_price ? Number(thisWeekStats._avg.total_price) : 0;
+    const lastWeekAvg = lastWeekStats._avg.total_price ? Number(lastWeekStats._avg.total_price) : 0;
+    const thisWeekNewCust = Number((thisWeekNewCustomers as any)?.[0]?.count || 0);
+    const lastWeekNewCust = Number((lastWeekNewCustomers as any)?.[0]?.count || 0);
+
+    // Calculate week-over-week changes
+    let ordersChangePercentage = 0;
+    if (lastWeekOrders > 0) {
+      ordersChangePercentage = ((thisWeekOrders - lastWeekOrders) / lastWeekOrders) * 100;
+    } else if (thisWeekOrders > 0) {
+      ordersChangePercentage = 100;
+    }
+
+    let avgChangePercentage = 0;
+    if (lastWeekAvg > 0) {
+      avgChangePercentage = ((thisWeekAvg - lastWeekAvg) / lastWeekAvg) * 100;
+    } else if (thisWeekAvg > 0) {
+      avgChangePercentage = 100;
+    }
+
+    let newCustomersChangePercentage = 0;
+    if (lastWeekNewCust > 0) {
+      newCustomersChangePercentage = ((thisWeekNewCust - lastWeekNewCust) / lastWeekNewCust) * 100;
+    } else if (thisWeekNewCust > 0) {
+      newCustomersChangePercentage = 100;
+    }
+
+    // 8. Order status distribution
+    const allStatuses = await prisma.orderStatuses.findMany();
+    const statusCounts = await prisma.orders.groupBy({
+      by: ['status_id'],
+      _count: true
+    });
+    const statusDistribution = allStatuses.map(status => {
+      const found = statusCounts.find(sc => sc.status_id === status.id);
+      return {
+        name: status.status_name,
+        value: found?._count || 0
+      };
+    }).filter(s => s.value > 0);
+
+    // 9. Daily revenue for last 7 days
+    const dailyRevenue = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const nextDate = new Date(date);
+      nextDate.setDate(nextDate.getDate() + 1);
+      const dayRevenue = await prisma.orders.aggregate({
+        where: {
+          created_at: { gte: date, lt: nextDate },
+          status: { status_name: { notIn: ['Cancelled', 'Unpaid'] } }
+        },
+        _sum: { total_price: true }
+      });
+      dailyRevenue.push({
+        day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        date: date.toISOString().split('T')[0],
+        revenue: Number(dayRevenue._sum.total_price || 0)
+      });
+    }
+
     // 7. Get today's orders for recent activity
     const recentOrders = await prisma.orders.findMany({
       where: {
@@ -1232,7 +1387,14 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
           totalOrders,
           averageOrderValue,
           revenueChangePercentage: Number(revenueChangePercentage.toFixed(1)),
-          trend: revenueChangePercentage >= 0 ? 'up' : 'down'
+          trend: revenueChangePercentage >= 0 ? 'up' : 'down',
+          ordersChangePercentage: Number(ordersChangePercentage.toFixed(1)),
+          ordersTrend: ordersChangePercentage >= 0 ? 'up' : 'down',
+          avgChangePercentage: Number(avgChangePercentage.toFixed(1)),
+          avgTrend: avgChangePercentage >= 0 ? 'up' : 'down',
+          newCustomers: thisWeekNewCust,
+          newCustomersChangePercentage: Number(newCustomersChangePercentage.toFixed(1)),
+          newCustomersTrend: newCustomersChangePercentage >= 0 ? 'up' : 'down'
         },
         topProducts: topProductsWithDetails,
         hourlyBreakdown,
@@ -1253,7 +1415,9 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
           yesterdayRevenue,
           change: Number(revenueChangePercentage.toFixed(1)),
           changeAmount: Number(todayRevenue - yesterdayRevenue)
-        }
+        },
+        statusDistribution,
+        dailyRevenue
       }
     });
   } catch (error) {
@@ -1456,7 +1620,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // ✅ FIX: Added profile: true to include customer's profile
+    // Include customer profile data (full_name lives directly on customer)
     const updatedOrder = await prisma.orders.update({
       where: { id: orderId },
       data: {
@@ -1472,7 +1636,6 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
                 email: true 
               }
             },
-            profile: true  // ✅ This is the fix for full_name
           }
         },
       },
@@ -1721,7 +1884,8 @@ export const createGuestOrder = async (req: Request, res: Response) => {
       scheduled_for, 
       customer_email, 
       customer_phone,
-      customer_name 
+      customer_name,
+      payment_method
     } = req.body;
 
     // 1. Validate required fields
@@ -1836,6 +2000,18 @@ export const createGuestOrder = async (req: Request, res: Response) => {
           } 
         }
       });
+
+      // Record selected payment method as a pending payment
+      if (payment_method) {
+        await tx.payments.create({
+          data: {
+            order_id: order.id,
+            amount: totalPrice,
+            payment_method,
+            payment_status: 'Pending',
+          }
+        });
+      }
 
       // Update stock
       for (const item of validatedItems) {

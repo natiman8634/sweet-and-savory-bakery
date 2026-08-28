@@ -7,9 +7,11 @@ import storeRoutes from './routes/store.routes.js';
 import { globalLimiter, sensitiveLimiter } from './middleware/rateLimiter.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/logger.js';
+import compression from 'compression';
 
 const app = express();
 app.use(requestLogger);
+app.use(compression());
 
 // ============================================
 // ✅ MIDDLEWARE - ORDER MATTERS!
@@ -45,18 +47,8 @@ if (process.env.NODE_ENV === 'development') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ✅ 7. DEBUG: Log all requests
+// ✅ 7. Lightweight request handling
 app.use((req, res, next) => {
-  console.log(`\n📨 ${req.method} ${req.path}`);
-  console.log(`  Headers:`, {
-    'content-type': req.headers['content-type'],
-    'content-length': req.headers['content-length'],
-    'authorization': req.headers['authorization'] ? 'Bearer ***' : 'None',
-    'origin': req.headers['origin']
-  });
-  console.log(`  Body:`, req.body);
-  console.log(`  Body type:`, typeof req.body);
-  console.log(`  Body keys:`, req.body ? Object.keys(req.body) : 'No body');
   next();
 });
 
