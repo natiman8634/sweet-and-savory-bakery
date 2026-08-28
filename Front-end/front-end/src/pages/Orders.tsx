@@ -371,13 +371,22 @@ function UserOrdersView({ user }: { user: any }) {
 }
 
 // ============================================================
-// MAIN COMPONENT - ROLE-BASED RENDERING
+// EXPORTS: route-based, not role-based
+// Default = user order page (/orders)
+// AdminOrders = admin management page (/admin/orders)
 // ============================================================
-export default function Orders() {
+function UserOrdersWrapper() {
   const { user } = useAuth();
   if (!user) {
     return (<div className="container mx-auto px-4 py-16 text-center"><p className="text-gray-600">Please log in to view your orders.</p></div>);
   }
-  if (user.role === 'Admin') return <AdminOrdersView />;
   return <UserOrdersView user={user} />;
+}
+
+export default function Orders() {
+  return <UserOrdersWrapper />;
+}
+
+export function AdminOrders() {
+  return <AdminOrdersView />;
 }

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProducts, getCategories } from '../api/productApi';
 import { useCart } from '../context/CartContext';
-import { useAuth } from '../context/AuthContext';
 import {
   getAdminProducts, createProduct, updateProduct, deleteProduct, toggleProductAvailability,
   type CreateProductData,
@@ -141,7 +140,7 @@ function ProductForm({ categories, initialData, isEdit, onSubmit, isLoading }: P
 }
 
 // ============================================================
-// ADMIN PRODUCTS VIEW
+// ADMIN PRODUCTS VIEW (used by /admin/products route)
 // ============================================================
 function AdminProductsView() {
   const queryClient = useQueryClient();
@@ -295,7 +294,7 @@ function AdminProductsView() {
 }
 
 // ============================================================
-// USER PRODUCTS VIEW
+// USER PRODUCTS VIEW (used by /products route - always public)
 // ============================================================
 function UserProductsView() {
   const { data, isLoading, isError, error, refetch } = useQuery({ queryKey: ['products'], queryFn: getProducts });
@@ -347,10 +346,14 @@ function UserProductsView() {
 }
 
 // ============================================================
-// MAIN COMPONENT - ROLE-BASED RENDERING
+// EXPORTS: route-based, not role-based
+// Default = public product page (/products)
+// AdminProducts = admin management page (/admin/products)
 // ============================================================
 export default function Products() {
-  const { user } = useAuth();
-  if (user?.role === 'Admin') return <AdminProductsView />;
   return <UserProductsView />;
+}
+
+export function AdminProducts() {
+  return <AdminProductsView />;
 }
