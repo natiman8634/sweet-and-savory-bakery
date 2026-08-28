@@ -10,8 +10,7 @@ import Profile from './pages/Profile';
 import Orders from './pages/Orders';
 import Checkout from './pages/Checkout';
 import AdminDashboard from './pages/admin/Dashboard';
-import AdminOrders from './pages/admin/Orders';
-import AdminProducts from './pages/admin/Products';
+
 import AdminUsers from './pages/admin/Users';
 import AdminReviews from './pages/admin/Reviews';
 
@@ -86,17 +85,17 @@ function App() {
             path="admin/orders"
             element={
               <ProtectedRoute adminOnly>
-                <AdminOrders />
+                <Orders />
               </ProtectedRoute>
             }
           />
-<Route
-  path="admin/products"
-  element={
-    <ProtectedRoute adminOnly>
-      <AdminProducts />
-    </ProtectedRoute>
-  }
+          <Route
+            path="admin/products"
+            element={
+              <ProtectedRoute adminOnly>
+                <Products />
+              </ProtectedRoute>
+            }
           />
 
           <Route
