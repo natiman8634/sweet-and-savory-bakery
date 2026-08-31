@@ -280,9 +280,48 @@ export default function AdminUsers() {
         </div>
       )}
 
-      {/* ========== USERS TABLE ========== */}
+      {/* ========== MOBILE USER CARDS ========== */}
       {!isLoading && users.length > 0 && (
-        <Card className="border-0 shadow-sm overflow-hidden">
+        <div className="md:hidden space-y-3">
+          {users.map((user: any) => {
+            const roleName = user.role?.role_name || 'Customer';
+            const badgeClass = roleColors[roleName] || 'bg-gray-100 text-gray-700';
+            return (
+              <Card key={user.id} className="border border-slate-200 shadow-sm">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold shrink-0">
+                      {user.profile?.full_name?.[0]?.toUpperCase() || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-slate-800 truncate">{user.profile?.full_name || 'Unknown'}</p>
+                      <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                    </div>
+                    <Badge className={`${badgeClass} border-0 text-xs`}>{roleName}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">{new Date(user.created_at).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={roleName}
+                        onChange={(e) => { if (e.target.value !== roleName) handleRoleChange(user.id, e.target.value); }}
+                        className="h-8 px-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        {roleOptions.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}
+                      </select>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(user)} className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ========== USERS TABLE (desktop) ========== */}
+      {!isLoading && users.length > 0 && (
+        <Card className="border-0 shadow-sm overflow-hidden hidden md:block">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>

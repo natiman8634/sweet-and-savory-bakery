@@ -12,9 +12,7 @@ import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '../components/ui/select';
+
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '../components/ui/dialog';
@@ -122,10 +120,20 @@ function ProductForm({ categories, initialData, isEdit, onSubmit, isLoading }: P
         <div className="space-y-2"><Label htmlFor="name">Product Name *</Label>
           <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., Sourdough Bread" className="border-gray-200 focus:ring-blue-500" required /></div>
         <div className="space-y-2"><Label htmlFor="category">Category *</Label>
-          <Select value={String(formData.category_id)} onValueChange={(v) => { if (v) setFormData({ ...formData, category_id: parseInt(v) }); }}>
-            <SelectTrigger className="border-gray-200 focus:ring-blue-500"><SelectValue placeholder="Select category" /></SelectTrigger>
-            <SelectContent>{categories.map((cat: any) => (<SelectItem key={cat.id} value={String(cat.id)}>{cat.category_name}</SelectItem>))}</SelectContent>
-          </Select></div>
+          <div className="relative">
+            <select
+              value={formData.category_id}
+              onChange={(e) => setFormData({ ...formData, category_id: parseInt(e.target.value) || 0 })}
+              className="w-full h-10 px-3 pr-8 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer"
+            >
+              <option value="">Select category</option>
+              {categories.map((cat: any) => (
+                <option key={cat.id} value={cat.id}>{cat.category_name}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          </div>
+        </div>
       </div>
       <div className="space-y-2"><Label htmlFor="description">Description</Label>
         <Textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Describe your product..." className="border-gray-200 focus:ring-blue-500 min-h-20" /></div>
@@ -135,10 +143,18 @@ function ProductForm({ categories, initialData, isEdit, onSubmit, isLoading }: P
         <div className="space-y-2"><Label htmlFor="stock_quantity">Stock Quantity *</Label>
           <Input id="stock_quantity" type="number" min="0" value={formData.stock_quantity} onChange={(e) => setFormData({ ...formData, stock_quantity: parseInt(e.target.value) || 0 })} className="border-gray-200 focus:ring-blue-500" required /></div>
         <div className="space-y-2"><Label htmlFor="is_available">Status</Label>
-          <Select value={formData.is_available ? 'true' : 'false'} onValueChange={(v) => setFormData({ ...formData, is_available: v === 'true' })}>
-            <SelectTrigger className="border-gray-200 focus:ring-blue-500"><SelectValue placeholder="Status" /></SelectTrigger>
-            <SelectContent><SelectItem value="true">Active</SelectItem><SelectItem value="false">Inactive</SelectItem></SelectContent>
-          </Select></div>
+          <div className="relative">
+            <select
+              value={formData.is_available ? 'true' : 'false'}
+              onChange={(e) => setFormData({ ...formData, is_available: e.target.value === 'true' })}
+              className="w-full h-10 px-3 pr-8 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer"
+            >
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          </div>
+        </div>
       </div>
       <div className="space-y-2">
         <Label>Product Image</Label>
@@ -218,12 +234,12 @@ function AdminProductsView() {
   return (
     <div className="space-y-6 bg-[#F8FAFC] min-h-screen p-4 md:p-6 rounded-2xl">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div><h1 className="text-2xl font-bold text-slate-800">Manage Products</h1><p className="text-sm text-gray-500">View, add, edit, and manage your product catalog</p></div>
-        <div className="flex items-center gap-3">
-          {isFetching && <span className="flex items-center text-xs text-gray-500"><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Loading...</span>}
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="border-blue-500 text-blue-600 hover:bg-blue-50"><RefreshCw className="h-4 w-4 mr-2" /> Refresh</Button>
-          <Button size="sm" onClick={() => setIsAddDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white"><Plus className="h-4 w-4 mr-2" /> Add Product</Button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div><h1 className="text-xl sm:text-2xl font-bold text-slate-800">Manage Products</h1><p className="text-xs sm:text-sm text-gray-500">View, add, edit, and manage your product catalog</p></div>
+        <div className="flex items-center gap-2">
+          {isFetching && <span className="flex items-center text-xs text-gray-500"><RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" /> Loading...</span>}
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="border-blue-500 text-blue-600 hover:bg-blue-50 h-9"><RefreshCw className="h-4 w-4 mr-2" /> Refresh</Button>
+          <Button size="sm" onClick={() => setIsAddDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white h-9"><Plus className="h-4 w-4 mr-2" /> Add Product</Button>
         </div>
       </div>
 
@@ -231,20 +247,29 @@ function AdminProductsView() {
 
       {/* SEARCH & FILTERS */}
       <Card className="border-0 shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input type="text" placeholder="Search by product name or description..." value={searchInput} onChange={(e) => setSearchInput(e.target.value)} className="pl-9 h-10 border-gray-200 focus:ring-blue-500 bg-white" /></div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v ?? '')}>
-                <SelectTrigger className="w-40 h-10 border-gray-200 focus:ring-blue-500 bg-white"><SelectValue placeholder="All Categories" /></SelectTrigger>
-                <SelectContent><SelectItem value="">All Categories</SelectItem>{categories.map((cat: any) => (<SelectItem key={cat.id} value={String(cat.id)}>{cat.category_name}</SelectItem>))}</SelectContent>
-              </Select>
-              <div className="relative">
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex flex-col gap-3">
+            <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input type="text" placeholder="Search products..." value={searchInput} onChange={(e) => setSearchInput(e.target.value)} className="pl-9 h-10 border-gray-200 focus:ring-blue-500 bg-white" /></div>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 sm:flex-initial">
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="w-full h-10 px-3 pr-8 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer"
+                >
+                  <option value="">All Categories</option>
+                  {categories.map((cat: any) => (
+                    <option key={cat.id} value={cat.id}>{cat.category_name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              </div>
+              <div className="relative flex-1 sm:flex-initial">
                 <select
                   value={stockFilter}
                   onChange={(e) => setStockFilter(e.target.value)}
-                  className="h-10 px-3 pr-8 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer"
+                  className="w-full h-10 px-3 pr-8 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer"
                 >
                   <option value="all">All Stock</option>
                   <option value="in_stock">In Stock</option>
@@ -253,7 +278,7 @@ function AdminProductsView() {
                 </select>
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
               </div>
-              <Button variant="outline" size="sm" onClick={handleClearFilters} className="h-10 border-blue-500 text-blue-600 hover:bg-blue-50"><Filter className="h-4 w-4 mr-1" /> Clear</Button>
+              <Button variant="outline" size="sm" onClick={handleClearFilters} className="h-10 shrink-0 border-blue-500 text-blue-600 hover:bg-blue-50"><Filter className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Clear</span></Button>
             </div>
           </div>
         </CardContent>
@@ -261,9 +286,51 @@ function AdminProductsView() {
 
       {isLoading && !productsData && <div className="space-y-3">{[...Array(5)].map((_, i) => (<div key={i} className="h-16 bg-gray-200 rounded-lg animate-pulse"></div>))}</div>}
 
-      {/* PRODUCTS TABLE */}
+      {/* MOBILE PRODUCT CARDS */}
       {!isLoading && products.length > 0 && (
-        <Card className="border-0 shadow-sm overflow-hidden">
+        <div className="md:hidden space-y-3">
+          {products.map((product: any) => {
+            const statusKey = product.is_available ? 'true' : 'false';
+            const badgeClass = adminStatusBadgeStyles[statusKey] || 'bg-gray-100 text-gray-700';
+            return (
+              <Card key={product.id} className="border border-slate-200 shadow-sm">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="h-14 w-14 rounded-lg bg-gray-100 overflow-hidden shrink-0">
+                      {product.image_url ? <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center text-gray-400 text-lg">🍞</div>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-slate-800 truncate">{product.name}</p>
+                      <p className="text-xs text-gray-500 truncate">{product.description || 'No description'}</p>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger><Button variant="ghost" size="sm" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4 text-gray-400" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={() => toggleAvailabilityMutation.mutate(product.id)}>{product.is_available ? <><XCircle className="h-4 w-4 mr-2 text-rose-500" /> Deactivate</> : <><CheckCircle className="h-4 w-4 mr-2 text-emerald-500" /> Activate</>}</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEdit(product)}><Edit className="h-4 w-4 mr-2 text-blue-500" /> Edit</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDelete(product)} className="text-rose-600"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="font-normal text-xs">{product.category?.category_name || 'Uncategorized'}</Badge>
+                    <Badge className={`${badgeClass} border-0 text-xs`}>{product.is_available ? 'Active' : 'Inactive'}</Badge>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${product.stock_quantity <= 5 && product.is_available ? 'bg-amber-100 text-amber-700' : product.stock_quantity === 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>{product.stock_quantity} in stock</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800">${Number(product.price).toFixed(2)}</span>
+                    <span className="text-xs text-gray-500 flex items-center gap-1"><Star className="h-3 w-3 fill-amber-400 text-amber-400" /> {product.averageRating?.toFixed(1) || '0.0'} ({product.reviewsCount || 0})</span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* DESKTOP PRODUCTS TABLE */}
+      {!isLoading && products.length > 0 && (
+        <Card className="border-0 shadow-sm overflow-hidden hidden md:block">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>

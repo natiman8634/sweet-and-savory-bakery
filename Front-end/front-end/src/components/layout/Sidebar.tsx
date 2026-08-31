@@ -34,8 +34,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'h-screen  top-0 bg-white border-r border-gray-100 hidden lg:flex flex-col shadow-[2px_0_8px_rgba(0,0,0,0.04)] transition-all duration-300 ease-in-out relative',
-        collapsed ? 'w-18' : 'w-64'
+        'fixed top-0 left-0 h-screen bg-white border-r border-gray-100 hidden lg:flex flex-col shadow-[2px_0_8px_rgba(0,0,0,0.04)] transition-all duration-300 ease-in-out z-50',
+        collapsed ? 'w-[60px]' : 'w-64'
       )}
     >
       {/* Logo */}

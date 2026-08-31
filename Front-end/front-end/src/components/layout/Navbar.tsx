@@ -17,11 +17,7 @@ import { Menu, ShoppingCart, LogOut, User, LayoutDashboard, Package, Home, Shopp
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
 
-interface NavbarProps {
-  sidebarWidth?: number;
-}
-
-export default function Navbar({ sidebarWidth = 0 }: NavbarProps) {
+export default function Navbar() {
   const { user, logout } = useAuth();
   const { totalItems } = useCart();
   const navigate = useNavigate();
@@ -53,21 +49,18 @@ export default function Navbar({ sidebarWidth = 0 }: NavbarProps) {
 
   return (
     <nav
-      style={{ marginLeft: sidebarWidth }}
       className="border-b border-gray-100 bg-white/95 backdrop-blur supports-backdrop-blur:bg-white/60 sticky top-0 z-40"
     >
       <div className="px-4 h-16 flex items-center justify-between">
         {/* Left side */}
         <div className="flex items-center">
           {/* Logo - only shown when no sidebar */}
-          {!isAdminRoute && (
-            <Link to="/" className="flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center">
-                <Cake className="h-4.5 w-4.5 text-red-600" />
-              </div>
-              <span className="text-lg font-bold text-gray-900 tracking-tight">Sweet & Savory</span>
-            </Link>
-          )}
+          <Link to="/" className={cn('flex items-center gap-2.5', isAdminRoute && 'lg:hidden')}>
+            <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center">
+              <Cake className="h-4.5 w-4.5 text-red-600" />
+            </div>
+            <span className="text-lg font-bold text-gray-900 tracking-tight">Sweet & Savory</span>
+          </Link>
         </div>
 
         {/* Center Navigation Links */}
