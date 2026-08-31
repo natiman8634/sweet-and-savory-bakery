@@ -8,6 +8,8 @@ import Register from './pages/Register';
 import Cart from './pages/Cart';
 import Profile from './pages/Profile';
 import Orders, { AdminOrders } from './pages/Orders';
+import OrderDetail from './pages/OrderDetail';
+import ProductDetail from './pages/ProductDetail';
 import Checkout from './pages/Checkout';
 import AdminDashboard from './pages/admin/Dashboard';
 
@@ -42,6 +44,7 @@ function App() {
           {/* Public Routes */}
           <Route index element={<Home />} />
           <Route path="products" element={<Products />} />
+          <Route path="products/:id" element={<ProductDetail />} />
           <Route path="cart" element={<Cart />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
@@ -68,6 +71,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Orders />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="orders/:id"
+            element={
+              <ProtectedRoute>
+                <OrderDetail />
               </ProtectedRoute>
             }
           />

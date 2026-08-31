@@ -13,7 +13,7 @@ import {
 } from '../ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
-import { Menu, ShoppingCart, LogOut, User, LayoutDashboard, Package, Home, ShoppingBag, Users, Star, Cake } from 'lucide-react';
+import { Menu, ShoppingCart, LogOut, User, LayoutDashboard, Package, Home, ShoppingBag, Users, Star, Cake, ClipboardList } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
 
@@ -48,6 +48,7 @@ export default function Navbar({ sidebarWidth = 0 }: NavbarProps) {
   const navLinks = [
     { to: '/', label: 'Home', icon: Home },
     { to: '/products', label: 'Products', icon: Package },
+    ...(user ? [{ to: '/orders', label: 'Orders', icon: ClipboardList }] : []),
   ];
 
   return (
@@ -188,19 +189,7 @@ export default function Navbar({ sidebarWidth = 0 }: NavbarProps) {
                         <p className="text-xs text-gray-500">{user.role === 'Admin' ? 'Administrator' : 'Customer'}</p>
                       </div>
                     </div>
-                    {/* Public nav links */}
-                    <div className="pt-2">
-                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">Navigation</p>
-                      {navLinks.map((link) => (
-                        <Link
-                          key={link.to}
-                          to={link.to}
-                          className="flex items-center gap-3 text-lg font-medium text-gray-700 hover:text-red-600 py-2"
-                        >
-                          <link.icon className="h-5 w-5" /> {link.label}
-                        </Link>
-                      ))}
-                    </div>
+
                     {user.role === 'Admin' && (
                       <>
                         <div className="pt-2 border-t border-gray-200">
@@ -247,18 +236,6 @@ export default function Navbar({ sidebarWidth = 0 }: NavbarProps) {
                   </>
                 ) : (
                   <>
-                    {/* Public nav links */}
-                    <div>
-                      {navLinks.map((link) => (
-                        <Link
-                          key={link.to}
-                          to={link.to}
-                          className="flex items-center gap-3 text-lg font-medium text-red-600 hover:text-red-700 py-2"
-                        >
-                          <link.icon className="h-5 w-5" /> {link.label}
-                        </Link>
-                      ))}
-                    </div>
                     <div className="pt-2 border-t border-gray-200">
                       <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">Account</p>
                     </div>

@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProducts, getCategories } from '../api/productApi';
 import { useCart } from '../context/CartContext';
@@ -6,7 +7,8 @@ import {
   getAdminProducts, createProduct, updateProduct, deleteProduct, toggleProductAvailability,
   type CreateProductData,
 } from '../api/adminApi';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
+import ProductCard from '../components/product/ProductCard';
+import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -29,8 +31,8 @@ import {
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import {
-  Star, ShoppingCart, RefreshCw, Search, Plus, MoreHorizontal, Edit, Trash2,
-  Package, AlertCircle, CheckCircle, XCircle, Filter, AlertTriangle,
+  RefreshCw, Search, Plus, MoreHorizontal, Edit, Trash2,
+  Package, AlertCircle, CheckCircle, XCircle, Filter, AlertTriangle, Star, ChevronDown, Upload,
 } from 'lucide-react';
 
 // ============================================================
@@ -82,15 +84,28 @@ interface ProductFormProps {
   isLoading: boolean;
 }
 function ProductForm({ categories, initialData, isEdit, onSubmit, isLoading }: ProductFormProps) {
+  const [imageMode, setImageMode] = useState<'url' | 'file'>(initialData?.image_url?.startsWith('data:') ? 'file' : 'url');
   const [formData, setFormData] = useState<CreateProductData>({
     name: initialData?.name || '',
     description: initialData?.description || '',
     price: initialData?.price || 0,
     image_url: initialData?.image_url || '',
-    category_id: initialData?.category_id || (categories[0]?.id || 0),
+    category_id: initialData?.category_id || '',
     stock_quantity: initialData?.stock_quantity || 0,
     is_available: initialData?.is_available !== undefined ? initialData.is_available : true,
   });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('Please select an image file'); return; }
+    if (file.size > 5 * 1024 * 1024) { alert('Image must be less than 5MB'); return; }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setFormData({ ...formData, image_url: event.target?.result as string });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,7 +130,7 @@ function ProductForm({ categories, initialData, isEdit, onSubmit, isLoading }: P
       <div className="space-y-2"><Label htmlFor="description">Description</Label>
         <Textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Describe your product..." className="border-gray-200 focus:ring-blue-500 min-h-20" /></div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="space-y-2"><Label htmlFor="price">Price ($) *</Label>
+        <div className="space-y-2"><Label htmlFor="price">Price (birr) *</Label>
           <Input id="price" type="number" step="0.01" min="0" value={formData.price} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} className="border-gray-200 focus:ring-blue-500" required /></div>
         <div className="space-y-2"><Label htmlFor="stock_quantity">Stock Quantity *</Label>
           <Input id="stock_quantity" type="number" min="0" value={formData.stock_quantity} onChange={(e) => setFormData({ ...formData, stock_quantity: parseInt(e.target.value) || 0 })} className="border-gray-200 focus:ring-blue-500" required /></div>
@@ -125,8 +140,26 @@ function ProductForm({ categories, initialData, isEdit, onSubmit, isLoading }: P
             <SelectContent><SelectItem value="true">Active</SelectItem><SelectItem value="false">Inactive</SelectItem></SelectContent>
           </Select></div>
       </div>
-      <div className="space-y-2"><Label htmlFor="image_url">Image URL</Label>
-        <Input id="image_url" value={formData.image_url} onChange={(e) => setFormData({ ...formData, image_url: e.target.value })} placeholder="https://example.com/image.jpg" className="border-gray-200 focus:ring-blue-500" />
+      <div className="space-y-2">
+        <Label>Product Image</Label>
+        <div className="flex gap-2 mb-2">
+          <button type="button" onClick={() => setImageMode('url')} className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${imageMode === 'url' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}>Paste URL</button>
+          <button type="button" onClick={() => setImageMode('file')} className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${imageMode === 'file' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}>Upload File</button>
+        </div>
+        {imageMode === 'url' ? (
+          <Input id="image_url" value={formData.image_url} onChange={(e) => setFormData({ ...formData, image_url: e.target.value })} placeholder="https://example.com/image.jpg" className="border-gray-200 focus:ring-blue-500" />
+        ) : (
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+              <Upload className="h-4 w-4 text-gray-500" />
+              <span className="text-sm text-gray-600">Choose image</span>
+              <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+            </label>
+            {formData.image_url && (
+              <button type="button" onClick={() => setFormData({ ...formData, image_url: '' })} className="text-xs text-red-500 hover:text-red-700">Remove</button>
+            )}
+          </div>
+        )}
         {formData.image_url && <div className="mt-2"><img src={formData.image_url} alt="Preview" className="h-24 w-24 object-cover rounded-lg border border-gray-200" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} /></div>}
       </div>
       <DialogFooter>
@@ -146,6 +179,7 @@ function AdminProductsView() {
   const queryClient = useQueryClient();
   const [searchInput, setSearchInput] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [stockFilter, setStockFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -155,7 +189,13 @@ function AdminProductsView() {
 
   const { data: productsData, isLoading, isFetching, refetch } = useQuery({ queryKey: ['admin-products', filters], queryFn: () => getAdminProducts(filters) });
   const { data: categoriesData } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
-  const products = productsData?.data || [];
+  const allProducts = productsData?.data || [];
+  const products = allProducts.filter((p: any) => {
+    if (stockFilter === 'in_stock') return p.stock_quantity > 0;
+    if (stockFilter === 'out_of_stock') return p.stock_quantity === 0;
+    if (stockFilter === 'low_stock') return p.stock_quantity > 0 && p.stock_quantity <= 5;
+    return true;
+  });
   const categories = categoriesData || [];
 
   const createMutation = useMutation({ mutationFn: (data: CreateProductData) => createProduct(data), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); setIsAddDialogOpen(false); }, onError: (err: any) => { alert(err?.response?.data?.message || 'Failed to create product'); } });
@@ -171,7 +211,7 @@ function AdminProductsView() {
     return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
   }, [searchInput, categoryFilter]);
 
-  const handleClearFilters = () => { setSearchInput(''); setCategoryFilter(''); setFilters({}); };
+  const handleClearFilters = () => { setSearchInput(''); setCategoryFilter(''); setStockFilter('all'); setFilters({}); };
   const handleEdit = (product: any) => { setSelectedProduct(product); setIsEditDialogOpen(true); };
   const handleDelete = (product: any) => { setSelectedProduct(product); setIsDeleteDialogOpen(true); };
 
@@ -187,7 +227,7 @@ function AdminProductsView() {
         </div>
       </div>
 
-      {!isLoading && products.length > 0 && <ProductStats products={products} />}
+      {!isLoading && allProducts.length > 0 && <ProductStats products={allProducts} />}
 
       {/* SEARCH & FILTERS */}
       <Card className="border-0 shadow-sm">
@@ -200,6 +240,19 @@ function AdminProductsView() {
                 <SelectTrigger className="w-40 h-10 border-gray-200 focus:ring-blue-500 bg-white"><SelectValue placeholder="All Categories" /></SelectTrigger>
                 <SelectContent><SelectItem value="">All Categories</SelectItem>{categories.map((cat: any) => (<SelectItem key={cat.id} value={String(cat.id)}>{cat.category_name}</SelectItem>))}</SelectContent>
               </Select>
+              <div className="relative">
+                <select
+                  value={stockFilter}
+                  onChange={(e) => setStockFilter(e.target.value)}
+                  className="h-10 px-3 pr-8 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer"
+                >
+                  <option value="all">All Stock</option>
+                  <option value="in_stock">In Stock</option>
+                  <option value="out_of_stock">Out of Stock</option>
+                  <option value="low_stock">Low Stock (≤5)</option>
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              </div>
               <Button variant="outline" size="sm" onClick={handleClearFilters} className="h-10 border-blue-500 text-blue-600 hover:bg-blue-50"><Filter className="h-4 w-4 mr-1" /> Clear</Button>
             </div>
           </div>
@@ -297,50 +350,134 @@ function AdminProductsView() {
 // USER PRODUCTS VIEW (used by /products route - always public)
 // ============================================================
 function UserProductsView() {
-  const { data, isLoading, isError, error, refetch } = useQuery({ queryKey: ['products'], queryFn: getProducts });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialSearch = searchParams.get('search') || '';
+  const initialCategory = searchParams.get('category') || '';
+
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+
+  const { data: productsData, isLoading, isError, error, refetch } = useQuery({ queryKey: ['products'], queryFn: getProducts });
+  const { data: categoriesData } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
   const { addItem } = useCart();
+
+  const products = Array.isArray(productsData) ? productsData : [];
+  const categories = categoriesData || [];
+
+  // Filter products by search and category
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const matchesSearch =
+        !searchQuery ||
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesCategory =
+        !selectedCategory || String(product.category_id) === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, searchQuery, selectedCategory]);
 
   if (isLoading) {
     return (<div className="container mx-auto px-4 py-8"><h1 className="text-3xl font-bold mb-6 text-amber-800"> Our Fresh Baked Goods</h1><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">{[...Array(8)].map((_, i) => (<div key={i} className="h-80 bg-gray-200 rounded-xl animate-pulse"></div>))}</div></div>);
   }
   if (isError) {
-    return (<div className="container mx-auto px-4 py-16 text-center"><p className="text-red-500 text-xl">❌ Failed to load products</p><p className="text-gray-600 mt-2">{error?.message || 'Please try again later.'}</p><Button onClick={() => refetch()} className="mt-4 bg-amber-700 hover:bg-amber-800">Retry</Button></div>);
+    return (<div className="container mx-auto px-4 py-16 text-center"><p className="text-red-500 text-xl">Failed to load products</p><p className="text-gray-600 mt-2">{error?.message || 'Please try again later.'}</p><Button onClick={() => refetch()} className="mt-4 bg-amber-700 hover:bg-amber-800">Retry</Button></div>);
   }
-  if (!Array.isArray(data)) {
-    return (<div className="container mx-auto px-4 py-16 text-center"><h2 className="text-2xl font-semibold text-red-600">⚠️ Data Format Error</h2><p className="text-gray-600 mt-2">The product list is not available. Please try again.</p><Button onClick={() => refetch()} className="mt-4 bg-amber-700 hover:bg-amber-800">Retry</Button></div>);
-  }
-  if (data.length === 0) {
-    return (<div className="container mx-auto px-4 py-16 text-center"><h2 className="text-2xl font-semibold text-gray-600"> No products available yet</h2><p className="text-gray-500 mt-2">Check back soon for fresh baked goods!</p></div>);
+  if (products.length === 0) {
+    return (<div className="container mx-auto px-4 py-16 text-center"><h2 className="text-2xl font-semibold text-gray-600">No products available yet</h2><p className="text-gray-500 mt-2">Check back soon for fresh baked goods!</p></div>);
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-amber-800"> Our Fresh Baked Goods</h1>
-        <Badge variant="outline" className="text-sm px-3 py-1">{data.length} items</Badge>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <h1 className="text-3xl font-bold text-amber-800">Our Fresh Baked Goods</h1>
+        <Badge variant="outline" className="text-sm px-3 py-1 w-fit">
+          {filteredProducts.length} {filteredProducts.length === 1 ? 'item' : 'items'}
+        </Badge>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {data.map((product) => (
-          <Card key={product.id} className="overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col">
-            <div className="relative h-48 bg-amber-50 overflow-hidden">
-              {product.image_url ? <img src={product.image_url} alt={product.name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" /> : <div className="w-full h-full flex items-center justify-center text-4xl text-amber-200">🥖</div>}
-              <div className="absolute top-2 right-2">{product.stock_quantity > 0 ? <Badge className="bg-green-600 hover:bg-green-700">In Stock</Badge> : <Badge variant="destructive">Out of Stock</Badge>}</div>
-            </div>
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold line-clamp-1">{product.name}</CardTitle>
-              <div className="flex items-center gap-2 text-sm text-amber-600"><Star className="w-4 h-4 fill-amber-500 text-amber-500" /><span className="font-medium">{product.averageRating?.toFixed(1) || '0.0'}</span><span className="text-gray-400">({product.reviewsCount || 0} reviews)</span></div>
-            </CardHeader>
-            <CardContent className="grow"><p className="text-sm text-gray-600 line-clamp-2">{product.description || 'Freshly baked daily!'}</p></CardContent>
-            <CardFooter className="flex justify-between items-center border-t pt-4">
-              <span className="text-2xl font-bold text-amber-800">${Number(product.price).toFixed(2)}</span>
-              <Button size="sm" className="bg-amber-700 hover:bg-amber-800 gap-2" disabled={product.stock_quantity === 0}
-                onClick={() => addItem({ id: product.id, name: product.name, price: Number(product.price), image_url: product.image_url, stock_quantity: product.stock_quantity })}>
-                <ShoppingCart className="w-4 h-4" /> Add
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
+
+      {/* Search & Category Filter */}
+      <div className="flex items-center gap-2 mb-6">
+        <div className="relative flex-1 min-w-0 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-400" />
+          <Input
+            type="text"
+            placeholder="Search products..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              const params = new URLSearchParams(searchParams);
+              if (e.target.value) params.set('search', e.target.value);
+              else params.delete('search');
+              setSearchParams(params, { replace: true });
+            }}
+            className="pl-9 h-10 border-red-200 focus-visible:ring-red-500 focus-visible:border-red-400 bg-red-50/40 text-slate-800 placeholder:text-red-300"
+          />
+        </div>
+        <div className="relative w-40 shrink-0">
+          <select
+            value={selectedCategory}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedCategory(val);
+              const params = new URLSearchParams(searchParams);
+              if (val) params.set('category', val);
+              else params.delete('category');
+              setSearchParams(params, { replace: true });
+            }}
+            className="w-full h-10 px-3 pr-8 rounded-lg border border-red-200 bg-red-50/40 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-400 appearance-none cursor-pointer"
+          >
+            <option value="">All Categories</option>
+            {categories.map((cat: any) => (
+              <option key={cat.id} value={cat.id}>{cat.category_name}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-red-400 pointer-events-none" />
+        </div>
+        {(searchQuery || selectedCategory) && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-10 shrink-0 border-red-200 text-red-600 hover:bg-red-50"
+            onClick={() => {
+              setSearchQuery('');
+              setSelectedCategory('');
+              setSearchParams({}, { replace: true });
+            }}
+          >
+            <Filter className="h-4 w-4 mr-1" /> Clear
+          </Button>
+        )}
       </div>
+
+      {/* Products Grid */}
+      {filteredProducts.length === 0 ? (
+        <div className="text-center py-16">
+          <Package className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+          <p className="text-lg font-medium text-gray-600">No products found</p>
+          <p className="text-sm text-gray-400 mt-1">Try adjusting your search or filter</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredProducts.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              variant="full"
+              onAddToCart={(p) =>
+                addItem({
+                  id: p.id,
+                  name: p.name,
+                  price: Number(p.price),
+                  image_url: p.image_url,
+                  stock_quantity: p.stock_quantity,
+                })
+              }
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -14,10 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import { Input } from '../components/ui/input';
-import {
-  Clock, Package, CheckCircle, XCircle, RefreshCw,
-  ChevronLeft, ChevronRight, Filter, ShoppingBag, Search, Calendar, AlertCircle,
+import { Input } from '../components/ui/input';import { Link } from 'react-router-dom';
+import { Clock, Package, CheckCircle, XCircle, RefreshCw,
+  ChevronLeft, ChevronRight, Filter, ShoppingBag, Search, Calendar, AlertCircle, Eye,
 } from 'lucide-react';
 
 // ============================================================
@@ -357,13 +356,15 @@ function UserOrdersView({ user }: { user: any }) {
       <h1 className="text-2xl font-bold text-amber-800 mb-4">My Orders</h1>
       <div className="space-y-4">
         {orders.map((order) => (
-          <Card key={order.id} className="overflow-hidden">
-            <CardHeader className="pb-2"><div className="flex justify-between items-start">
-              <div><CardTitle className="text-sm font-medium">Order #{order.id.slice(0, 8)}</CardTitle><p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p></div>
-              <Badge className={getStatusColor(order.status.status_name)}><span className="flex items-center gap-1">{getStatusIcon(order.status.status_name)}{order.status.status_name}</span></Badge>
-            </div></CardHeader>
-            <CardContent><div className="flex justify-between items-center text-sm"><span className="text-gray-600">{order.order_type} • {new Date(order.scheduled_for).toLocaleDateString('en-US')}</span><span className="font-bold text-amber-800">${Number(order.total_price).toFixed(2)}</span></div></CardContent>
-          </Card>
+          <Link to={`/orders/${order.id}`} key={order.id}>
+            <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer group">
+              <CardHeader className="pb-2"><div className="flex justify-between items-start">
+                <div><CardTitle className="text-sm font-medium group-hover:text-amber-700 transition-colors">Order #{order.id.slice(0, 8)}</CardTitle><p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p></div>
+                <Badge className={getStatusColor(order.status.status_name)}><span className="flex items-center gap-1">{getStatusIcon(order.status.status_name)}{order.status.status_name}</span></Badge>
+              </div></CardHeader>
+              <CardContent><div className="flex justify-between items-center text-sm"><div className="flex items-center gap-2 text-gray-600"><span>{order.order_type} • {new Date(order.scheduled_for).toLocaleDateString('en-US')}</span></div><div className="flex items-center gap-3"><span className="font-bold text-amber-800">${Number(order.total_price).toFixed(2)}</span><Eye className="h-4 w-4 text-gray-400 group-hover:text-amber-600 transition-colors" /></div></div></CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
     </div>

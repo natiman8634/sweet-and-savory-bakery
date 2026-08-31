@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getProducts } from '../api/productApi';
 import { getCategories } from '../api/productApi';
-import { Card, CardContent } from '../components/ui/card';
+import { useCart } from '../context/CartContext';
+import ProductCard from '../components/product/ProductCard';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
@@ -27,8 +28,6 @@ import {
   Cookie,
   EggFried,
   Apple,
-  Croissant,
-  Star,
 } from 'lucide-react';
 import image from "./download__20_-removebg-preview.png";
 
@@ -37,7 +36,7 @@ import image from "./download__20_-removebg-preview.png";
 // ============================================================
 
 const categoryIcons: Record<string, any> = {
-  Breads: Croissant,
+  Breads: Cake,
   Pastries: Cake,
   Cakes: Cake,
   Pizza: Pizza,
@@ -59,6 +58,7 @@ const categoryIcons: Record<string, any> = {
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
+  const { addItem } = useCart();
 
   const { data: productsData, isLoading: productsLoading } = useQuery({
     queryKey: ['products'],
@@ -292,47 +292,21 @@ export default function Home() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {popularProducts.map((product: any) => (
-                <Link to={`/products/${product.id}`} key={product.id}>
-                  <Card className="group overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                    <div className="relative h-48 overflow-hidden bg-gray-100">
-                      {product.image_url ? (
-                        <img
-                          src={product.image_url}
-                          alt={product.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-4xl text-gray-300">
-                          <Croissant className="h-12 w-12" />
-                        </div>
-                      )}
-                      <Badge className="absolute top-3 left-3 bg-amber-500 hover:bg-amber-600 text-white border-0">
-                        <Flame className="h-3 w-3 mr-1" /> Popular
-                      </Badge>
-                      <Badge className="absolute bottom-3 left-3 bg-white/90 text-slate-700 border-0 backdrop-blur-sm">
-                        <Star className="h-3 w-3 fill-amber-400 text-amber-400 inline" /> {product.averageRating?.toFixed(1) || '0.0'} ({product.reviewsCount || 0})
-                      </Badge>
-                    </div>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold text-slate-800 group-hover:text-blue-600 transition-colors">
-                            {product.name}
-                          </h3>
-                          <p className="text-sm text-gray-500 line-clamp-1">
-                            {product.category?.category_name || 'Bakery'}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-amber-600">${Number(product.price).toFixed(2)}</p>
-                          <Badge variant="outline" className="text-[10px] border-emerald-300 text-emerald-600">
-                            {product.stock_quantity > 0 ? 'In Stock' : 'Out of Stock'}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  variant="compact"
+                  showPopularBadge
+                  onAddToCart={(p) =>
+                    addItem({
+                      id: p.id,
+                      name: p.name,
+                      price: Number(p.price),
+                      image_url: p.image_url,
+                      stock_quantity: p.stock_quantity,
+                    })
+                  }
+                />
               ))}
             </div>
           )}
