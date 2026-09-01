@@ -200,17 +200,17 @@ function AdminProductsView() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const [filters, setFilters] = useState<{ category?: number; search?: string }>({});
+  const [filters, setFilters] = useState<{ category?: number }>({});
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: productsData, isLoading, isFetching, refetch } = useQuery({ queryKey: ['admin-products', filters], queryFn: () => getAdminProducts(filters) });
   const { data: categoriesData } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
   const allProducts = productsData?.data || [];
+  const trimmedSearch = searchInput.trim().toLowerCase();
   const products = allProducts.filter((p: any) => {
-    if (stockFilter === 'in_stock') return p.stock_quantity > 0;
-    if (stockFilter === 'out_of_stock') return p.stock_quantity === 0;
-    if (stockFilter === 'low_stock') return p.stock_quantity > 0 && p.stock_quantity <= 5;
-    return true;
+    const matchesSearch = !trimmedSearch || p.name?.toLowerCase().includes(trimmedSearch) || p.description?.toLowerCase().includes(trimmedSearch);
+    const matchesStock = stockFilter === 'all' || (stockFilter === 'in_stock' && p.stock_quantity > 0) || (stockFilter === 'out_of_stock' && p.stock_quantity === 0) || (stockFilter === 'low_stock' && p.stock_quantity > 0 && p.stock_quantity <= 5);
+    return matchesSearch && matchesStock;
   });
   const categories = categoriesData || [];
 
@@ -222,10 +222,10 @@ function AdminProductsView() {
   useEffect(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
-      setFilters((prev) => { const s = searchInput.trim() || undefined; const c = categoryFilter ? parseInt(categoryFilter) : undefined; if (prev.search === s && prev.category === c) return prev; return { search: s, category: c }; });
+      setFilters((prev) => { const c = categoryFilter ? parseInt(categoryFilter) : undefined; if (prev.category === c) return prev; return { category: c }; });
     }, 300);
     return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
-  }, [searchInput, categoryFilter]);
+  }, [categoryFilter]);
 
   const handleClearFilters = () => { setSearchInput(''); setCategoryFilter(''); setStockFilter('all'); setFilters({}); };
   const handleEdit = (product: any) => { setSelectedProduct(product); setIsEditDialogOpen(true); };

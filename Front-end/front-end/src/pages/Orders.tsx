@@ -140,18 +140,9 @@ function AdminOrdersView() {
   const [filters, setFilters] = useState<AdminOrderFilters>({ limit: 20, offset: 0 });
   const [statusError, setStatusError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState('');
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dateDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingFromDate, setPendingFromDate] = useState('');
   const [pendingToDate, setPendingToDate] = useState('');
-
-  useEffect(() => {
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(() => {
-      setFilters((prev) => { const s = searchInput.trim() || undefined; if (prev.search === s) return prev; return { ...prev, search: s, offset: 0 }; });
-    }, 300);
-    return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
-  }, [searchInput]);
 
   useEffect(() => {
     if (dateDebounceTimerRef.current) clearTimeout(dateDebounceTimerRef.current);
@@ -174,7 +165,15 @@ function AdminOrdersView() {
   const handlePageChange = (newOffset: number) => { setFilters((prev) => ({ ...prev, offset: newOffset })); };
   const handleClearFilters = () => { setSearchInput(''); setPendingFromDate(''); setPendingToDate(''); setFilters({ limit: 20, offset: 0 }); };
 
-  const orders = data?.data || [];
+  const allOrders = data?.data || [];
+  const trimmedSearch = searchInput.trim().toLowerCase();
+  const orders = trimmedSearch
+    ? allOrders.filter((o: any) =>
+        o.id?.toLowerCase().includes(trimmedSearch) ||
+        o.customer?.full_name?.toLowerCase().includes(trimmedSearch) ||
+        o.customer_email?.toLowerCase().includes(trimmedSearch)
+      )
+    : allOrders;
   const meta = data?.meta;
 
   return (
