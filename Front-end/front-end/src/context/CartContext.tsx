@@ -64,7 +64,7 @@ interface CartContextType {
   items: CartItem[];
   totalItems: number;
   totalPrice: number;
-  addItem: (product: { id: string; name: string; price: number; image_url: string; stock_quantity: number }) => void;
+  addItem: (product: { id: string; name: string; price: number; image_url: string; stock_quantity: number }, quantity?: number) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -107,7 +107,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   // Actions
-  const addItem = (product: { id: string; name: string; price: number; image_url: string; stock_quantity: number }) => {
+  const addItem = (product: { id: string; name: string; price: number; image_url: string; stock_quantity: number }, quantity: number = 1) => {
     dispatch({
       type: 'ADD_ITEM',
       payload: {
@@ -116,7 +116,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         price: product.price,
         image_url: product.image_url || '',
         maxStock: product.stock_quantity,
-        quantity: 1,
+        quantity,
       },
     });
   };

@@ -295,7 +295,7 @@ export default function AdminDashboard() {
             <CardDescription>Hourly revenue for the last 12 hours</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-75">
+            <div className="h-48 sm:h-62.5 lg:h-75">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={revenueData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -331,7 +331,7 @@ export default function AdminDashboard() {
             <CardDescription>Distribution of all orders</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-62.5">
+            <div className="h-48 sm:h-62.5">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -381,7 +381,7 @@ export default function AdminDashboard() {
             <CardDescription>Last 7 days</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-62.5">
+            <div className="h-48 sm:h-62.5">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={data.dailyRevenue || []}
@@ -473,7 +473,27 @@ export default function AdminDashboard() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {recentOrders.slice(0, 5).map((order) => {
+              const StatusIcon = statusIcons[order.status as keyof typeof statusIcons] || Clock;
+              return (
+                <div key={order.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                  <div className="min-w-0">
+                    <p className="font-mono text-xs text-gray-500">#{order.id}</p>
+                    <p className="font-medium text-slate-800 text-sm truncate">{order.customerName}</p>
+                    <p className="text-xs text-gray-500">{order.items} items</p>
+                  </div>
+                  <div className="text-right shrink-0 ml-3">
+                    <p className="font-semibold text-slate-800">${order.total.toFixed(2)}</p>
+                    <Badge className={`${statusColors[order.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800'} flex items-center gap-1 w-fit px-2 py-0.5 text-[10px] border mt-1`}><StatusIcon className="h-3 w-3" />{order.status}</Badge>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* Desktop table */}
+          <div className="overflow-x-auto hidden md:block">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100">

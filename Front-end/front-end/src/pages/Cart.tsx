@@ -58,7 +58,7 @@ export default function Cart() {
                   <div>
                     <h3 className="font-semibold text-lg">{item.name}</h3>
                     <p className="text-2xl font-bold text-amber-800">
-                      ${(item.price * item.quantity).toFixed(2)}
+                      {(item.price * item.quantity).toFixed(2)} birr
                     </p>
                     <p className="text-sm text-gray-500">Stock: {item.maxStock}</p>
                   </div>
@@ -120,11 +120,11 @@ export default function Cart() {
             <CardContent className="space-y-2">
               <div className="flex justify-between">
                 <span>Items ({totalItems})</span>
-                <span>${totalPrice.toFixed(2)}</span>
+                <span>{totalPrice.toFixed(2)} birr</span>
               </div>
               <div className="flex justify-between font-semibold text-lg border-t pt-2">
                 <span>Total</span>
-                <span className="text-amber-800">${totalPrice.toFixed(2)}</span>
+                <span className="text-amber-800">{totalPrice.toFixed(2)} birr</span>
               </div>
             </CardContent>
             <CardFooter>
