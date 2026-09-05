@@ -218,9 +218,39 @@ export default function AdminReviews() {
         </div>
       )}
 
-      {/* ========== REVIEWS TABLE ========== */}
+      {/* ========== MOBILE REVIEW CARDS ========== */}
       {!isLoading && filteredReviews.length > 0 && (
-        <Card className="border-0 shadow-sm overflow-hidden">
+        <div className="md:hidden space-y-3">
+          {filteredReviews.map((review) => (
+            <Card key={review.id} className="border border-slate-200 shadow-sm">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-8 w-8 rounded bg-gray-100 overflow-hidden shrink-0">
+                      {review.product?.image_url ? <img src={review.product.image_url} alt={review.product.name} className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">🍞</div>}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">{review.product?.name || 'Unknown'}</p>
+                      <p className="text-xs text-gray-500">{review.user?.profile?.full_name || 'Anonymous'}</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => handleDelete(review)} className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 shrink-0"><Trash2 className="h-4 w-4" /></Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <StarRating rating={review.rating} />
+                  {review.is_verified_purchase ? <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px]"><CheckCircle className="h-3 w-3 mr-1" />Verified</Badge> : <Badge variant="outline" className="text-[10px] text-gray-500">Unverified</Badge>}
+                </div>
+                <p className="text-sm text-gray-600">{review.comment || 'No comment'}</p>
+                <p className="text-xs text-gray-400">{new Date(review.created_at).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* ========== REVIEWS TABLE (desktop) ========== */}
+      {!isLoading && filteredReviews.length > 0 && (
+        <Card className="border-0 shadow-sm overflow-hidden hidden md:block">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>

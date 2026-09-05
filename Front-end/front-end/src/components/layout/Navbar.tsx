@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { Button } from '../ui/button';
@@ -13,13 +13,16 @@ import {
 } from '../ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
-import { Menu, ShoppingCart, Home, Package, LogOut, User, LayoutDashboard, ShoppingBag, Users, Star } from 'lucide-react';
+import { Menu, ShoppingCart, LogOut, User, LayoutDashboard, Package, Home, ShoppingBag, Users, Star, Cake, ClipboardList } from 'lucide-react';
 import { Badge } from '../ui/badge';
+import { cn } from '../../lib/utils';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { totalItems } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
 
   const handleLogout = () => {
     logout();
@@ -41,33 +44,55 @@ export default function Navbar() {
   const navLinks = [
     { to: '/', label: 'Home', icon: Home },
     { to: '/products', label: 'Products', icon: Package },
+    ...(user ? [{ to: '/orders', label: 'Orders', icon: ClipboardList }] : []),
   ];
 
   return (
-    <nav className="border-b border-gray-200 bg-white/95 backdrop-blur supports-backdrop-blur:bg-white/60 sticky top-0 z-50">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 text-xl font-bold text-red-700">
-          Sweet & Savory
-        </Link>
+    <nav
+      className="border-b border-gray-100 bg-white/95 backdrop-blur supports-backdrop-blur:bg-white/60 sticky top-0 z-40"
+    >
+      <div className="px-4 h-16 flex items-center justify-between">
+        {/* Left side */}
+        <div className="flex items-center">
+          {/* Logo - only shown when no sidebar */}
+          <Link to="/" className={cn('flex items-center gap-2.5', isAdminRoute && 'lg:hidden')}>
+            <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center">
+              <Cake className="h-4.5 w-4.5 text-red-600" />
+            </div>
+            <span className="text-lg font-bold text-gray-900 tracking-tight">Sweet & Savory</span>
+          </Link>
+        </div>
 
-        {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-6">
-          {navLinks.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              className="text-sm font-medium text-gray-700 hover:text-red-500 transition-colors"
-            >
-              {link.label}
-            </Link>
-          ))}
-          
-          {/* Cart Icon - Always visible, even for guests */}
-          <Link to="/cart" className="relative text-gray-700 hover:text-red-600">
+        {/* Center Navigation Links */}
+        <div className="hidden md:flex items-center gap-1">
+          {navLinks.map((link) => {
+            const isActive = location.pathname === link.to ||
+              (link.to !== '/' && location.pathname.startsWith(link.to));
+            return (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={cn(
+                  'flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200',
+                  isActive
+                    ? 'bg-red-50 text-red-700'
+                    : 'text-red-600 hover:bg-red-50 hover:text-red-700'
+                )}
+              >
+                <link.icon className="h-4 w-4" />
+                {link.label}
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Right side */}
+        <div className="hidden md:flex items-center gap-4">
+          {/* Cart Icon */}
+          <Link to="/cart" className="relative text-gray-500 hover:text-red-600 transition-colors">
             <ShoppingCart className="h-5 w-5" />
             {totalItems > 0 && (
-              <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-600 text-white border-2 border-white">
+              <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-[10px] font-bold bg-red-600 text-white border-2 border-white">
                 {totalItems}
               </Badge>
             )}
@@ -79,14 +104,14 @@ export default function Navbar() {
               <DropdownMenuTrigger
                 render={<button className="flex items-center gap-2 hover:opacity-80 cursor-pointer" />}
               >
-                  <Avatar className="h-8 w-8 bg-blue-100">
-                    <AvatarFallback className="text-blue-700 text-sm font-medium">
-                      {getInitials()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm font-medium hidden lg:inline text-gray-700">
-                    {user.profile?.full_name || 'User'}
-                  </span>
+                <Avatar className="h-8 w-8 bg-red-100">
+                  <AvatarFallback className="text-red-700 text-sm font-semibold">
+                    {getInitials()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-medium hidden lg:inline text-gray-700">
+                  {user.profile?.full_name || 'User'}
+                </span>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuGroup>
@@ -111,12 +136,12 @@ export default function Navbar() {
           ) : (
             <div className="flex items-center gap-2">
               <Link to="/login">
-                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-600">
+                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-red-600 font-medium">
                   Login
                 </Button>
               </Link>
               <Link to="/register">
-                <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700">
+                <Button size="sm" className="bg-red-600 text-white hover:bg-red-700 font-medium">
                   Sign Up
                 </Button>
               </Link>
@@ -126,18 +151,18 @@ export default function Navbar() {
 
         {/* Mobile Menu */}
         <div className="md:hidden flex items-center gap-2">
-          {/* Cart Icon - Always visible */}
-          <Link to="/cart" className="relative text-gray-700">
+          {/* Cart Icon */}
+          <Link to="/cart" className="relative text-gray-500">
             <ShoppingCart className="h-5 w-5" />
             {totalItems > 0 && (
-              <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-600 text-white border-2 border-white">
+              <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-[10px] font-bold bg-red-600 text-white border-2 border-white">
                 {totalItems}
               </Badge>
             )}
           </Link>
 
           <Sheet>
-            <SheetTrigger >
+            <SheetTrigger>
               <Button variant="ghost" size="icon">
                 <Menu className="h-5 w-5" />
               </Button>
@@ -146,46 +171,50 @@ export default function Navbar() {
               <div className="flex flex-col gap-4 mt-8">
                 {user ? (
                   <>
-                    <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
-                      <Avatar className="h-8 w-8 bg-blue-100">
-                        <AvatarFallback className="text-blue-700">
+                    <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
+                      <Avatar className="h-10 w-10 bg-red-100">
+                        <AvatarFallback className="text-red-700 font-semibold">
                           {getInitials()}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="font-medium text-gray-700">{user.profile?.full_name || 'User'}</span>
+                      <div>
+                        <p className="font-semibold text-gray-900">{user.profile?.full_name || 'User'}</p>
+                        <p className="text-xs text-gray-500">{user.role === 'Admin' ? 'Administrator' : 'Customer'}</p>
+                      </div>
                     </div>
+
                     {user.role === 'Admin' && (
                       <>
-                        <div className="pt-4 border-t border-gray-200">
-                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Admin Panel</p>
+                        <div className="pt-2 border-t border-gray-200">
+                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">Admin Panel</p>
                         </div>
                         <Link
                           to="/admin/dashboard"
-                          className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
+                          className="flex items-center gap-3 text-lg font-medium text-gray-700 hover:text-red-600"
                         >
                           <LayoutDashboard className="h-5 w-5" /> Dashboard
                         </Link>
                         <Link
                           to="/admin/products"
-                          className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
+                          className="flex items-center gap-3 text-lg font-medium text-gray-700 hover:text-red-600"
                         >
                           <Package className="h-5 w-5" /> Products
                         </Link>
                         <Link
                           to="/admin/orders"
-                          className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
+                          className="flex items-center gap-3 text-lg font-medium text-gray-700 hover:text-red-600"
                         >
                           <ShoppingBag className="h-5 w-5" /> Orders
                         </Link>
                         <Link
                           to="/admin/users"
-                          className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
+                          className="flex items-center gap-3 text-lg font-medium text-gray-700 hover:text-red-600"
                         >
                           <Users className="h-5 w-5" /> Users
                         </Link>
                         <Link
                           to="/admin/reviews"
-                          className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600"
+                          className="flex items-center gap-3 text-lg font-medium text-gray-700 hover:text-red-600"
                         >
                           <Star className="h-5 w-5" /> Reviews
                         </Link>
@@ -193,20 +222,20 @@ export default function Navbar() {
                     )}
                     <button
                       onClick={handleLogout}
-                      className="flex items-center gap-2 text-lg font-medium text-red-600 hover:text-red-700 text-left"
+                      className="flex items-center gap-3 text-lg font-medium text-red-600 hover:text-red-700 text-left pt-2 border-t border-gray-200"
                     >
                       <LogOut className="h-5 w-5" /> Logout
                     </button>
                   </>
                 ) : (
                   <>
-                    <div className="pt-4 border-t border-gray-200">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Account</p>
+                    <div className="pt-2 border-t border-gray-200">
+                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">Account</p>
                     </div>
-                    <Link to="/login" className="flex items-center gap-2 text-lg font-medium text-gray-700 hover:text-blue-600">
+                    <Link to="/login" className="flex items-center gap-3 text-lg font-medium text-gray-700 hover:text-red-600">
                       Login
                     </Link>
-                    <Link to="/register" className="flex items-center gap-2 text-lg font-medium text-blue-600 hover:text-blue-700">
+                    <Link to="/register" className="flex items-center gap-3 text-lg font-medium text-red-600 hover:text-red-700">
                       Sign Up
                     </Link>
                   </>

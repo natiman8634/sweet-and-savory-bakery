@@ -15,9 +15,33 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { Input } from '../components/ui/input';
+import { Link } from 'react-router-dom';
 import {
-  Clock, Package, CheckCircle, XCircle, RefreshCw,
-  ChevronLeft, ChevronRight, Filter, ShoppingBag, Search, Calendar, AlertCircle,
+  Clock,
+  Package,
+  CheckCircle,
+  XCircle,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  ChevronRight as ArrowRight,
+  Filter,
+  ShoppingBag,
+  Search,
+  Calendar,
+  AlertCircle,
+  Eye,
+  Store,
+  Wallet,
+  CookingPot,
+  BadgeCheck,
+  ShoppingBag as ShoppingBagIcon,
+  Home,
+  Bike,
+  MapPinned,
+  ClipboardList,
+  PackageCheck,
+  Truck,
 } from 'lucide-react';
 
 // ============================================================
@@ -37,23 +61,177 @@ interface Order {
 
 const getStatusIcon = (status: string) => {
   switch (status.toLowerCase()) {
-    case 'pending': case 'unpaid': return <Clock className="h-4 w-4 text-yellow-500" />;
-    case 'preparing': return <Package className="h-4 w-4 text-blue-500" />;
-    case 'completed': return <CheckCircle className="h-4 w-4 text-green-500" />;
-    case 'cancelled': return <XCircle className="h-4 w-4 text-red-500" />;
-    default: return <Clock className="h-4 w-4 text-gray-500" />;
+    case 'pending':
+    case 'unpaid':
+      return <Clock className="h-4 w-4 text-yellow-500" />;
+    case 'preparing':
+      return <Package className="h-4 w-4 text-blue-500" />;
+    case 'completed':
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
+    case 'cancelled':
+      return <XCircle className="h-4 w-4 text-red-500" />;
+    default:
+      return <Clock className="h-4 w-4 text-gray-500" />;
   }
 };
 
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
-    case 'pending': case 'unpaid': return 'bg-yellow-100 text-yellow-800';
-    case 'preparing': return 'bg-blue-100 text-blue-800';
-    case 'completed': return 'bg-green-100 text-green-800';
-    case 'cancelled': return 'bg-red-100 text-red-800';
-    default: return 'bg-gray-100 text-gray-800';
+    case 'pending':
+    case 'unpaid':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'preparing':
+      return 'bg-blue-100 text-blue-800';
+    case 'ready for pickup':
+      return 'bg-purple-100 text-purple-800';
+    case 'out for delivery':
+      return 'bg-indigo-100 text-indigo-800';
+    case 'completed':
+      return 'bg-green-100 text-green-800';
+    case 'cancelled':
+      return 'bg-red-100 text-red-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
   }
 };
+
+// ============================================================
+// HORIZONTAL ORDER TIMELINE
+// ============================================================
+interface HTimelineStep {
+  key: string;
+  label: string;
+  icon: React.ElementType;
+}
+
+const PICKUP_HSTEPS: HTimelineStep[] = [
+  { key: 'order_placed', label: 'Placed', icon: Store },
+  { key: 'payment_confirmed', label: 'Paid', icon: Wallet },
+  { key: 'preparing', label: 'Preparing', icon: CookingPot },
+  { key: 'ready_for_pickup', label: 'Ready', icon: BadgeCheck },
+  { key: 'completed', label: 'Picked Up', icon: ShoppingBagIcon },
+];
+
+const DELIVERY_HSTEPS: HTimelineStep[] = [
+  { key: 'order_placed', label: 'Placed', icon: Home },
+  { key: 'payment_confirmed', label: 'Paid', icon: Wallet },
+  { key: 'preparing', label: 'Preparing', icon: CookingPot },
+  { key: 'out_for_delivery', label: 'On the Way', icon: Bike },
+  { key: 'completed', label: 'Delivered', icon: MapPinned },
+];
+
+const HSTATUS_MAP: Record<string, number> = {
+  unpaid: 0,
+  pending: 0,
+  'payment confirmed': 1,
+  preparing: 2,
+  'ready for pickup': 3,
+  'out for delivery': 3,
+  completed: 4,
+  delivered: 4,
+  'picked up': 4,
+};
+
+function HorizontalTimeline({
+  orderType,
+  statusName,
+}: {
+  orderType: string;
+  statusName: string;
+}) {
+  const steps =
+    orderType.toLowerCase() === 'delivery'
+      ? DELIVERY_HSTEPS
+      : PICKUP_HSTEPS;
+  const isCancelled = statusName.toLowerCase() === 'cancelled';
+  const currentIdx = isCancelled
+    ? -1
+    : HSTATUS_MAP[statusName.toLowerCase()] ?? 0;
+
+  return (
+    <div className="w-full px-1">
+      <div className="flex items-center justify-between relative">
+        {/* Background connector line */}
+        <div className="absolute top-3 left-3 right-3 h-0.5 bg-slate-200 z-0" />
+        {/* Active connector line */}
+        {!isCancelled && currentIdx >= 0 && (
+          <div
+            className="absolute top-3 left-3 h-0.5 bg-emerald-500 z-[1] transition-all duration-500"
+            style={{
+              width: `${(currentIdx / (steps.length - 1)) * (100 - 6)}%`,
+            }}
+          />
+        )}
+
+        {steps.map((step, i) => {
+          const isCompleted = !isCancelled && i < currentIdx;
+          const isActive = !isCancelled && i === currentIdx;
+          const isUpcoming = isCancelled || i > currentIdx;
+          const StepIcon = step.icon;
+
+          let circleClasses = '';
+          let textColor = '';
+          let labelClasses = '';
+
+          if (isCompleted) {
+            circleClasses =
+              'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-200';
+            textColor = 'text-emerald-700';
+            labelClasses = 'font-medium';
+          } else if (isActive) {
+            circleClasses =
+              'bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-200 ring-2 ring-amber-100';
+            textColor = 'text-amber-700';
+            labelClasses = 'font-semibold';
+          } else {
+            circleClasses = 'bg-white border-slate-300 text-slate-400';
+            textColor = 'text-slate-400';
+            labelClasses = '';
+          }
+
+          return (
+            <div
+              key={step.key}
+              className="flex flex-col items-center relative z-10"
+            >
+              <div
+                className={`
+                  w-6 h-6 rounded-full border-2 flex items-center justify-center
+                  transition-all duration-300 shrink-0
+                  ${circleClasses}
+                `}
+              >
+                {isCompleted ? (
+                  <CheckCircle className="h-3 w-3" />
+                ) : (
+                  <StepIcon className="h-3 w-3" />
+                )}
+              </div>
+              <p
+                className={`text-[9px] mt-1 text-center leading-tight ${textColor} ${labelClasses}`}
+              >
+                {step.label}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// STATUS FILTER CHIPS
+// ============================================================
+const USER_STATUS_FILTERS = [
+  { value: 'all', label: 'All Orders', color: 'bg-slate-100 text-slate-700 border-slate-200', activeColor: 'bg-slate-800 text-white border-slate-800' },
+  { value: 'pending', label: 'Pending', color: 'bg-amber-50 text-amber-700 border-amber-200', activeColor: 'bg-amber-500 text-white border-amber-500' },
+  { value: 'preparing', label: 'Preparing', color: 'bg-blue-50 text-blue-700 border-blue-200', activeColor: 'bg-blue-500 text-white border-blue-500' },
+  { value: 'ready for pickup', label: 'Ready', color: 'bg-purple-50 text-purple-700 border-purple-200', activeColor: 'bg-purple-500 text-white border-purple-500' },
+  { value: 'out for delivery', label: 'Out for Delivery', color: 'bg-indigo-50 text-indigo-700 border-indigo-200', activeColor: 'bg-indigo-500 text-white border-indigo-500' },
+  { value: 'completed', label: 'Completed', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', activeColor: 'bg-emerald-500 text-white border-emerald-500' },
+  { value: 'cancelled', label: 'Cancelled', color: 'bg-red-50 text-red-700 border-red-200', activeColor: 'bg-red-500 text-white border-red-500' },
+];
 
 // ============================================================
 // ADMIN-ONLY CONSTANTS
@@ -141,18 +319,9 @@ function AdminOrdersView() {
   const [filters, setFilters] = useState<AdminOrderFilters>({ limit: 20, offset: 0 });
   const [statusError, setStatusError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState('');
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dateDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingFromDate, setPendingFromDate] = useState('');
   const [pendingToDate, setPendingToDate] = useState('');
-
-  useEffect(() => {
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(() => {
-      setFilters((prev) => { const s = searchInput.trim() || undefined; if (prev.search === s) return prev; return { ...prev, search: s, offset: 0 }; });
-    }, 300);
-    return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
-  }, [searchInput]);
 
   useEffect(() => {
     if (dateDebounceTimerRef.current) clearTimeout(dateDebounceTimerRef.current);
@@ -175,7 +344,15 @@ function AdminOrdersView() {
   const handlePageChange = (newOffset: number) => { setFilters((prev) => ({ ...prev, offset: newOffset })); };
   const handleClearFilters = () => { setSearchInput(''); setPendingFromDate(''); setPendingToDate(''); setFilters({ limit: 20, offset: 0 }); };
 
-  const orders = data?.data || [];
+  const allOrders = data?.data || [];
+  const trimmedSearch = searchInput.trim().toLowerCase();
+  const orders = trimmedSearch
+    ? allOrders.filter((o: any) =>
+        o.id?.toLowerCase().includes(trimmedSearch) ||
+        o.customer?.full_name?.toLowerCase().includes(trimmedSearch) ||
+        o.customer_email?.toLowerCase().includes(trimmedSearch)
+      )
+    : allOrders;
   const meta = data?.meta;
 
   return (
@@ -244,7 +421,7 @@ function AdminOrdersView() {
         </CardContent>
       </Card>
 
-      {statusError && <div className="flex items-center gap-2 text-rose-700 bg-rose-50 p-3 rounded-lg border border-rose-200 text-sm"><span>❌</span> {statusError}</div>}
+      {statusError && <div className="flex items-center gap-2 text-rose-700 bg-rose-50 p-3 rounded-lg border border-rose-200 text-sm"><XCircle className="h-4 w-4" /> {statusError}</div>}
 
       {isLoading && !data && (
         <div className="space-y-3">{[...Array(5)].map((_, i) => (<Card key={i} className="border-0 shadow-sm"><CardContent className="p-4"><div className="h-8 bg-slate-200 rounded animate-pulse"></div></CardContent></Card>))}</div>
@@ -334,50 +511,275 @@ function AdminOrdersView() {
 }
 
 // ============================================================
-// USER ORDERS VIEW
+// USER ORDERS VIEW — REDESIGNED
 // ============================================================
 function UserOrdersView({ user }: { user: any }) {
+  const [statusFilter, setStatusFilter] = useState('all');
+
   const getMyOrders = async (): Promise<Order[]> => {
     const response = await apiClient.get('/orders/my-orders');
     return response.data.data || [];
   };
-  const { data: orders, isLoading, isError, error } = useQuery({ queryKey: ['my-orders'], queryFn: getMyOrders, enabled: !!user, retry: 1 });
+
+  const {
+    data: orders,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ['my-orders'],
+    queryFn: getMyOrders,
+    enabled: !!user,
+    retry: 1,
+  });
+
+  // Filter orders by selected status
+  const filteredOrders =
+    statusFilter === 'all'
+      ? orders || []
+      : (orders || []).filter(
+          (o) =>
+            o.status?.status_name?.toLowerCase() === statusFilter.toLowerCase()
+        );
+
+  // Count per status for chip badges
+  const statusCounts = (orders || []).reduce((acc: Record<string, number>, o) => {
+    const s = o.status?.status_name?.toLowerCase() || 'unknown';
+    acc[s] = (acc[s] || 0) + 1;
+    return acc;
+  }, {});
 
   if (isLoading) {
-    return (<div className="container mx-auto px-4 py-8"><h1 className="text-2xl font-bold text-amber-800 mb-4">My Orders</h1><div className="space-y-4">{[...Array(3)].map((_, i) => (<div key={i} className="h-32 bg-gray-200 rounded-xl animate-pulse"></div>))}</div></div>);
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <div className="mb-6">
+          <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-3" />
+          <div className="flex gap-2 mb-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-8 w-20 bg-gray-200 rounded-full animate-pulse" />
+            ))}
+          </div>
+        </div>
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-40 bg-gray-200 rounded-2xl animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
   }
+
   if (isError) {
-    return (<div className="container mx-auto px-4 py-16 text-center"><p className="text-red-500">⚠️ Failed to load orders</p><p className="text-gray-500 text-sm mt-1">{error instanceof Error ? error.message : 'Please try again later.'}</p></div>);
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-50 mb-4">
+          <XCircle className="h-8 w-8 text-red-400" />
+        </div>
+        <p className="text-red-500 text-lg font-medium">Failed to load orders</p>
+        <p className="text-gray-500 text-sm mt-1">
+          {error instanceof Error ? error.message : 'Please try again later.'}
+        </p>
+      </div>
+    );
   }
+
   if (!orders || orders.length === 0) {
-    return (<div className="container mx-auto px-4 py-16 text-center"><h2 className="text-2xl font-semibold text-gray-600">No orders yet</h2><p className="text-gray-500 mt-2">Start shopping to place your first order!</p></div>);
+    return (
+      <div className="container mx-auto px-4 py-16 text-center max-w-2xl">
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-amber-50 mb-4">
+          <ShoppingBag className="h-10 w-10 text-amber-300" />
+        </div>
+        <h2 className="text-xl font-semibold text-slate-700">No orders yet</h2>
+        <p className="text-gray-500 mt-2 mb-6">
+          Start shopping to place your first order!
+        </p>
+        <Link to="/products">
+          <Button className="bg-amber-600 hover:bg-amber-700 text-white px-6">
+            <ShoppingBag className="h-4 w-4 mr-2" /> Browse Products
+          </Button>
+        </Link>
+      </div>
+    );
   }
+
   return (
-    <div className="container mx-auto px-4 py-4 max-w-lg pb-20">
-      <h1 className="text-2xl font-bold text-amber-800 mb-4">My Orders</h1>
-      <div className="space-y-4">
-        {orders.map((order) => (
-          <Card key={order.id} className="overflow-hidden">
-            <CardHeader className="pb-2"><div className="flex justify-between items-start">
-              <div><CardTitle className="text-sm font-medium">Order #{order.id.slice(0, 8)}</CardTitle><p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p></div>
-              <Badge className={getStatusColor(order.status.status_name)}><span className="flex items-center gap-1">{getStatusIcon(order.status.status_name)}{order.status.status_name}</span></Badge>
-            </div></CardHeader>
-            <CardContent><div className="flex justify-between items-center text-sm"><span className="text-gray-600">{order.order_type} • {new Date(order.scheduled_for).toLocaleDateString('en-US')}</span><span className="font-bold text-amber-800">${Number(order.total_price).toFixed(2)}</span></div></CardContent>
-          </Card>
-        ))}
+    <div className="container mx-auto px-4 py-6 max-w-2xl pb-20">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="p-2 bg-amber-100 rounded-xl">
+            <ShoppingBag className="h-5 w-5 text-amber-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">My Orders</h1>
+            <p className="text-sm text-gray-500">
+              {orders.length} order{orders.length !== 1 ? 's' : ''} total
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Status Filter Chips */}
+      <div className="flex gap-2 overflow-x-auto pb-3 mb-5 -mx-1 px-1 scrollbar-hide">
+        {USER_STATUS_FILTERS.map((filter) => {
+          const count =
+            filter.value === 'all'
+              ? orders.length
+              : statusCounts[filter.value] || 0;
+          const isActive = statusFilter === filter.value;
+          return (
+            <button
+              key={filter.value}
+              onClick={() => setStatusFilter(filter.value)}
+              className={`
+                flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                border transition-all duration-200 whitespace-nowrap shrink-0
+                ${
+                  isActive
+                    ? filter.activeColor + ' shadow-sm'
+                    : filter.color + ' hover:shadow-sm'
+                }
+              `}
+            >
+              {filter.label}
+              <span
+                className={`
+                  inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[10px] font-bold px-1
+                  ${isActive ? 'bg-white/25 text-white' : 'bg-black/5 text-inherit'}
+                `}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Empty filtered state */}
+      {filteredOrders.length === 0 && (
+        <div className="text-center py-12">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-3">
+            <Package className="h-8 w-8 text-slate-300" />
+          </div>
+          <p className="text-slate-500 font-medium">No orders with this status</p>
+          <p className="text-sm text-gray-400 mt-1">Try selecting a different filter</p>
+        </div>
+      )}
+
+      {/* Order Cards */}
+      <div className="space-y-3">
+        {filteredOrders.map((order) => {
+          const statusName = order.status?.status_name || 'Unknown';
+          const isCancelled = statusName.toLowerCase() === 'cancelled';
+
+          return (
+            <Link to={`/orders/${order.id}`} key={order.id}>
+              <Card
+                className={`
+                  overflow-hidden transition-all duration-200 cursor-pointer
+                  border border-slate-200/80
+                  hover:border-amber-300 hover:shadow-lg hover:shadow-amber-100/50
+                  hover:-translate-y-0.5
+                  active:scale-[0.99]
+                  group
+                `}
+              >
+                <CardContent className="p-0">
+                  {/* Top section: Order info */}
+                  <div className="p-4 pb-3">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
+                          #{order.id.slice(0, 8)}
+                        </span>
+                        <Badge className={`${getStatusColor(statusName)} px-2 py-0.5 text-[10px] border-0`}>
+                          <span className="flex items-center gap-1">
+                            {getStatusIcon(statusName)}
+                            {statusName}
+                          </span>
+                        </Badge>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-amber-500 group-hover:translate-x-0.5 transition-all" />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          {order.order_type === 'Delivery' ? (
+                            <Truck className="h-3.5 w-3.5" />
+                          ) : (
+                            <Store className="h-3.5 w-3.5" />
+                          )}
+                          {order.order_type}
+                        </span>
+                        <span className="text-gray-300">|</span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {new Date(order.created_at).toLocaleDateString(
+                            'en-US',
+                            {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            }
+                          )}
+                        </span>
+                      </div>
+                      <span className="text-lg font-bold text-slate-800">
+                        ${Number(order.total_price).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Horizontal Timeline */}
+                  <div
+                    className={`
+                      px-4 py-3 border-t border-dashed
+                      ${isCancelled ? 'border-red-200 bg-red-50/30' : 'border-slate-100 bg-slate-50/50'}
+                    `}
+                  >
+                    <HorizontalTimeline
+                      orderType={order.order_type}
+                      statusName={statusName}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 // ============================================================
-// MAIN COMPONENT - ROLE-BASED RENDERING
+// EXPORTS: route-based, not role-based
+// Default = user order page (/orders)
+// AdminOrders = admin management page (/admin/orders)
 // ============================================================
-export default function Orders() {
+function UserOrdersWrapper() {
   const { user } = useAuth();
   if (!user) {
-    return (<div className="container mx-auto px-4 py-16 text-center"><p className="text-gray-600">Please log in to view your orders.</p></div>);
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
+          <Clock className="h-8 w-8 text-slate-300" />
+        </div>
+        <p className="text-slate-600 text-lg">Please log in to view your orders.</p>
+        <Link to="/login">
+          <Button className="mt-4 bg-amber-600 hover:bg-amber-700">Sign In</Button>
+        </Link>
+      </div>
+    );
   }
-  if (user.role === 'Admin') return <AdminOrdersView />;
   return <UserOrdersView user={user} />;
+}
+
+export default function Orders() {
+  return <UserOrdersWrapper />;
+}
+
+export function AdminOrders() {
+  return <AdminOrdersView />;
 }
