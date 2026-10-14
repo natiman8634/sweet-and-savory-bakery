@@ -34,7 +34,7 @@ import {
   getMyReviews,
   deleteReview,
 } from '../controllers/reviews.js';  // 🟢 NEW: Task 2 - Reviews
-import { authenticate, adminAuth } from '../middleware/auth.js';
+import { authenticate, adminAuth, staffAuth } from '../middleware/auth.js';
 import { getNotifications, markNotificationAsRead } from '../controllers/notifications.js';
 import { auditLogger } from '../middleware/auditLogger.js';
 import {
@@ -43,6 +43,8 @@ import {
   changePassword,
   getAllUsers,
   updateUserRole,
+  createStaff,
+  resetUserPassword,
   deleteUser
 } from '../controllers/users.js';
 import { sensitiveLimiter } from '../middleware/rateLimiter.js';
@@ -120,32 +122,34 @@ router.get('/orders/:id', authenticate, getOrderById);
 // ADMIN ONLY ROUTES
 // ============================================
 router.get('/admin/users', adminAuth, getAllUsers);
+router.post('/admin/users/staff', adminAuth, createStaff);
 router.patch('/admin/users/:id/role', adminAuth, updateUserRole);
+router.patch('/admin/users/:id/reset-password', adminAuth, resetUserPassword);
 router.delete('/admin/users/:id', adminAuth, deleteUser);
 
-// Product Management
-router.get('/admin/products', adminAuth, getAllProductsAdmin);
+// Product Management — catalog reads and stock updates are open to Staff too
+router.get('/admin/products', staffAuth, getAllProductsAdmin);
 router.post('/admin/products', adminAuth, createProduct);
-router.patch('/admin/products/:id', adminAuth, updateProduct);
+router.patch('/admin/products/:id', staffAuth, updateProduct);
 router.delete('/admin/products/:id', adminAuth, deleteProduct);
-router.patch('/admin/products/:id/toggle-availability', adminAuth, toggleProductAvailability);
+router.patch('/admin/products/:id/toggle-availability', staffAuth, toggleProductAvailability);
 router.post('/admin/products/bulk-update', adminAuth, bulkUpdateProducts);
-router.get('/admin/products/low-stock/report', adminAuth, getLowStockProducts);
+router.get('/admin/products/low-stock/report', staffAuth, getLowStockProducts);
 
 // 🟢 TASK 1: Advanced Sales Dashboard
-router.get('/admin/dashboard', adminAuth, getDashboardData);
+router.get('/admin/dashboard', staffAuth, getDashboardData);
 
 // 🟢 TASK 9 & 10: Admin orders with pagination and search
 // GET /api/admin/orders?page=1&limit=20&search=John&status=Pending&date=2026-07-09
-router.get('/admin/orders', adminAuth, getAllOrders);
+router.get('/admin/orders', staffAuth, getAllOrders);
 
-router.patch('/admin/orders/:id/status', adminAuth, updateOrderStatus);
+router.patch('/admin/orders/:id/status', staffAuth, updateOrderStatus);
 
 // 🟢 TASK 1: Advanced Statistics
-router.get('/admin/orders/stats', adminAuth, getOrderStats);
+router.get('/admin/orders/stats', staffAuth, getOrderStats);
 
 // 🟢 TASK 2: Export Functionality
-router.get('/admin/orders/export', adminAuth, exportOrdersCSV);
+router.get('/admin/orders/export', staffAuth, exportOrdersCSV);
 
 // 🟢 TASK 3: Cache Management (Admin only)
 router.delete('/admin/cache', adminAuth, clearCache);

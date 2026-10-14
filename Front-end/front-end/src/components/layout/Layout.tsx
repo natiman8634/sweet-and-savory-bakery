@@ -9,7 +9,8 @@ export default function Layout() {
   const { user } = useAuth();
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin');
-  const showSidebar = user?.role === 'Admin' && isAdminRoute;
+  const isBackOffice = user?.role === 'Admin' || user?.role === 'Staff';
+  const showSidebar = isBackOffice && isAdminRoute;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
