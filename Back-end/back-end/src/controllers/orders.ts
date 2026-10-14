@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 import { orderSchema } from '../utils/validators.js';
+import { isBackOfficeRole } from '../utils/roles.js';
 import { sendOrderConfirmation, sendOrderStatusUpdate } from '../services/emailService.js';
 import bcrypt from 'bcrypt';
 
@@ -583,10 +584,11 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
       sortOrder = 'desc'
     } = req.query;
 
-    if (req.user?.role?.role_name !== 'Admin') {
+    // Admin and Staff share the order feed
+    if (!isBackOfficeRole(req.user?.role?.role_name)) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied. Admin privileges required.'
+        message: 'Access denied. Admin or Staff privileges required.'
       });
     }
 
@@ -731,6 +733,34 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
       _max: { total_price: true }
     });
 
+    // Real per-status counts for the summary cards (respects the active filters)
+    const statusGroups = await prisma.orders.groupBy({
+      by: ['status_id'],
+      where,
+      _count: { id: true }
+    });
+
+    const statusNames = await prisma.orderStatuses.findMany({
+      select: { id: true, status_name: true }
+    });
+    const statusNameById = new Map(statusNames.map((s) => [s.id, s.status_name]));
+
+    const statusBreakdown = statusGroups.map((group) => ({
+      status: statusNameById.get(group.status_id) || 'Unknown',
+      count: group._count.id
+    }));
+
+    const statusCount = (name: string) =>
+      statusBreakdown.find((s) => s.status.toLowerCase() === name.toLowerCase())?.count || 0;
+
+    const ACTIVE_STATUSES = [
+      'Pending',
+      'Unpaid',
+      'Preparing',
+      'Ready for Pickup',
+      'Out for Delivery'
+    ];
+
     res.json({
       success: true,
       data: orders,
@@ -750,6 +780,8 @@ export const getAllOrders = async (req: AuthRequest, res: Response) => {
           sortBy: sortField,
           sortOrder: sortOrder
         },
+        statusBreakdown,
+        activeOrders: ACTIVE_STATUSES.reduce((sum, name) => sum + statusCount(name), 0),
         summary: {
           totalOrders: stats._count.id || 0,
           totalRevenue: Number(stats._sum.total_price) || 0,
@@ -919,11 +951,11 @@ const getCustomerStats = async (dateFilter: any) => {
  */
 export const getOrderStats = async (req: AuthRequest, res: Response) => {
   try {
-    // Check if user is admin
-    if (req.user?.role?.role_name !== 'Admin') {
+    // Check if user has back-office access
+    if (!isBackOfficeRole(req.user?.role?.role_name)) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied. Admin privileges required.'
+        message: 'Access denied. Admin or Staff privileges required.'
       });
     }
 
@@ -1049,11 +1081,11 @@ export const getOrderStats = async (req: AuthRequest, res: Response) => {
  */
 export const getDashboardData = async (req: AuthRequest, res: Response) => {
   try {
-    // Check if user is admin
-    if (req.user?.role?.role_name !== 'Admin') {
+    // Check if user has back-office access
+    if (!isBackOfficeRole(req.user?.role?.role_name)) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied. Admin privileges required.'
+        message: 'Access denied. Admin or Staff privileges required.'
       });
     }
 
@@ -1440,11 +1472,11 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
  */
 export const exportOrdersCSV = async (req: AuthRequest, res: Response) => {
   try {
-    // Check if user is admin
-    if (req.user?.role?.role_name !== 'Admin') {
+    // Check if user has back-office access
+    if (!isBackOfficeRole(req.user?.role?.role_name)) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied. Admin privileges required.'
+        message: 'Access denied. Admin or Staff privileges required.'
       });
     }
 

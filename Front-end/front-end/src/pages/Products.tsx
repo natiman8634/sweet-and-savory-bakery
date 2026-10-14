@@ -569,7 +569,7 @@ function UserProductsView() {
   }, [products, searchQuery, selectedCategory]);
 
   if (isLoading) {
-    return (<div className="container mx-auto px-4 py-8"><h1 className="text-3xl font-bold mb-6 text-amber-800"> Our Fresh Baked Goods</h1><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">{[...Array(8)].map((_, i) => (<div key={i} className="h-80 bg-gray-200 rounded-xl animate-pulse"></div>))}</div></div>);
+    return (<div className="container mx-auto px-4 py-8"><h1 className="text-3xl font-bold mb-6 text-amber-800"> Our Fresh Baked Goods</h1><div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">{[...Array(8)].map((_, i) => (<div key={i} className="h-80 bg-gray-200 rounded-xl animate-pulse"></div>))}</div></div>);
   }
   if (isError) {
     return (<div className="container mx-auto px-4 py-16 text-center"><p className="text-red-500 text-xl">Failed to load products</p><p className="text-gray-600 mt-2">{error?.message || 'Please try again later.'}</p><Button onClick={() => refetch()} className="mt-4 bg-amber-700 hover:bg-amber-800">Retry</Button></div>);
@@ -650,7 +650,7 @@ function UserProductsView() {
           <p className="text-sm text-gray-400 mt-1">Try adjusting your search or filter</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
           {filteredProducts.map((product) => (
             <ProductCard
               key={product.id}
