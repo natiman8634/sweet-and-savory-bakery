@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma.ts';
+import { isAdminRole, isBackOfficeRole } from '../utils/roles.js';
 
 // Define the structure of the data inside your token
 export interface AuthRequest extends Request {
@@ -108,7 +109,7 @@ export const requireAdmin = async (
     }
 
     // If user has full role object
-    if (req.user.role?.role_name === 'Admin') {
+    if (isAdminRole(req.user.role?.role_name)) {
       next();
       return;
     }
@@ -119,7 +120,7 @@ export const requireAdmin = async (
         where: { id: req.user.roleId }
       });
 
-      if (role?.role_name === 'Admin') {
+      if (isAdminRole(role?.role_name)) {
         next();
         return;
       }
@@ -137,5 +138,52 @@ export const requireAdmin = async (
   }
 };
 
+// Staff authorization middleware — allows both Admin and Staff roles
+export const requireStaff = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // If user has full role object
+    if (isBackOfficeRole(req.user.role?.role_name)) {
+      next();
+      return;
+    }
+
+    // If we only have roleId, fetch the role
+    if (req.user.roleId) {
+      const role = await prisma.userRoles.findUnique({
+        where: { id: req.user.roleId }
+      });
+
+      if (isBackOfficeRole(role?.role_name)) {
+        next();
+        return;
+      }
+    }
+
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Staff privileges required.'
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Authorization error'
+    });
+  }
+};
+
 // Combined middleware for admin routes (auth + admin check)
 export const adminAuth = [authenticate, requireAdmin];
+
+// Combined middleware for back-office routes (auth + admin/staff check)
+export const staffAuth = [authenticate, requireStaff];

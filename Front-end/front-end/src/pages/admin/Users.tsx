@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getAdminUsers, updateUserRole, deleteUser } from '../../api/adminApi';
+import { getAdminUsers, createStaff, resetUserPassword, deleteUser } from '../../api/adminApi';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -30,16 +30,27 @@ import {
   TableRow,
 } from '../../components/ui/table';
 import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
 import {
   RefreshCw,
   Search,
   Trash2,
   Users,
   UserCheck,
+  UserPlus,
+  KeyRound,
   Filter,
   ChevronLeft,
   ChevronRight,
-} from 'lucide-react'; // ✅ Removed unused imports
+} from 'lucide-react';
 
 // ============================================================
 // 🎨 CONSTANTS
@@ -109,6 +120,21 @@ export default function AdminUsers() {
   const [page, setPage] = useState(1);
   const limit = 10;
 
+  // ➕ Add staff
+  const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
+  const [staffForm, setStaffForm] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    password: '',
+  });
+
+  // 🔑 Reset password
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [resetTarget, setResetTarget] = useState<any>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
   // ============================================================
   // 📡 QUERIES
   // ============================================================
@@ -131,14 +157,32 @@ export default function AdminUsers() {
   // 🔄 MUTATIONS
   // ============================================================
 
-  const updateRoleMutation = useMutation({
-    mutationFn: ({ userId, roleId }: { userId: string; roleId: number }) =>
-      updateUserRole(userId, roleId),
+  const createStaffMutation = useMutation({
+    mutationFn: (data: { full_name: string; email: string; phone?: string; password: string }) =>
+      createStaff(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      setIsAddStaffOpen(false);
+      setStaffForm({ full_name: '', email: '', phone: '', password: '' });
+      alert('Staff account created successfully');
     },
     onError: (err: any) => {
-      alert(err?.response?.data?.message || 'Failed to update role');
+      alert(err?.response?.data?.message || 'Failed to create staff account');
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: ({ userId, password }: { userId: string; password: string }) =>
+      resetUserPassword(userId, password),
+    onSuccess: () => {
+      setIsResetDialogOpen(false);
+      setResetTarget(null);
+      setNewPassword('');
+      setConfirmPassword('');
+      alert('Password reset successfully');
+    },
+    onError: (err: any) => {
+      alert(err?.response?.data?.message || 'Failed to reset password');
     },
   });
 
@@ -182,12 +226,37 @@ export default function AdminUsers() {
     setPage(1);
   };
 
-  const handleRoleChange = (userId: string, roleName: string) => {
-    const roleMap: Record<string, number> = { Admin: 1, Staff: 2, Customer: 3 };
-    const roleId = roleMap[roleName];
-    if (roleId) {
-      updateRoleMutation.mutate({ userId, roleId });
+  const handleAddStaff = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!staffForm.full_name.trim()) return alert('Full name is required');
+    if (!staffForm.email.trim()) return alert('Email is required');
+    if (staffForm.password.length < 8) {
+      return alert('Password must be at least 8 characters long');
     }
+    createStaffMutation.mutate({
+      full_name: staffForm.full_name.trim(),
+      email: staffForm.email.trim(),
+      phone: staffForm.phone.trim() || undefined,
+      password: staffForm.password,
+    });
+  };
+
+  const handleOpenReset = (user: any) => {
+    setResetTarget(user);
+    setNewPassword('');
+    setConfirmPassword('');
+    setIsResetDialogOpen(true);
+  };
+
+  const handleResetPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 8) {
+      return alert('Password must be at least 8 characters long');
+    }
+    if (newPassword !== confirmPassword) {
+      return alert('Passwords do not match');
+    }
+    resetPasswordMutation.mutate({ userId: resetTarget?.id, password: newPassword });
   };
 
   const handleDelete = (user: any) => {
@@ -205,7 +274,9 @@ export default function AdminUsers() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">👤 Manage Users</h1>
-          <p className="text-sm text-gray-500">View and manage all registered users</p>
+          <p className="text-sm text-gray-500">
+            Add staff, reset passwords, and manage all registered users
+          </p>
         </div>
         <div className="flex items-center gap-3">
           {isFetching && (
@@ -221,6 +292,13 @@ export default function AdminUsers() {
             className="border-blue-500 text-blue-600 hover:bg-blue-50"
           >
             <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setIsAddStaffOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <UserPlus className="h-4 w-4 mr-2" /> Add Staff
           </Button>
         </div>
       </div>
@@ -300,13 +378,14 @@ export default function AdminUsers() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">{new Date(user.created_at).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                     <div className="flex items-center gap-2">
-                      <select
-                        value={roleName}
-                        onChange={(e) => { if (e.target.value !== roleName) handleRoleChange(user.id, e.target.value); }}
-                        className="h-8 px-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenReset(user)}
+                        className="h-8 text-xs border-blue-500 text-blue-600 hover:bg-blue-50"
                       >
-                        {roleOptions.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}
-                      </select>
+                        <KeyRound className="h-3.5 w-3.5 mr-1" /> Reset Password
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => handleDelete(user)} className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </div>
@@ -379,25 +458,14 @@ export default function AdminUsers() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Select
-                              value={roleName}
-                              onValueChange={(value) => {
-                                if (value && value !== roleName) {
-                                  handleRoleChange(user.id, value);
-                                }
-                              }}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenReset(user)}
+                              className="h-8 text-xs border-blue-500 text-blue-600 hover:bg-blue-50"
                             >
-                              <SelectTrigger className="w-28 h-8 text-xs border-gray-200 focus:ring-blue-500">
-                                <SelectValue placeholder="Role" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {roleOptions.map((r) => (
-                                  <SelectItem key={r.value} value={r.value}>
-                                    {r.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              <KeyRound className="h-3.5 w-3.5 mr-1" /> Reset Password
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -472,15 +540,152 @@ export default function AdminUsers() {
       )}
 
       {/* ============================================================
-          🗑️ DELETE CONFIRMATION
+          ➕ ADD STAFF
+          ============================================================ */}
+      <Dialog open={isAddStaffOpen} onOpenChange={setIsAddStaffOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Staff</DialogTitle>
+            <DialogDescription>
+              Create a staff account. The staff member can sign in with this email and password.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddStaff} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="staff_name">Full Name *</Label>
+              <Input
+                id="staff_name"
+                value={staffForm.full_name}
+                onChange={(e) => setStaffForm({ ...staffForm, full_name: e.target.value })}
+                placeholder="e.g., Jane Doe"
+                className="border-gray-200 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="staff_email">Email *</Label>
+              <Input
+                id="staff_email"
+                type="email"
+                value={staffForm.email}
+                onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
+                placeholder="staff@bakery.com"
+                className="border-gray-200 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="staff_phone">Phone</Label>
+              <Input
+                id="staff_phone"
+                value={staffForm.phone}
+                onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })}
+                placeholder="Optional"
+                className="border-gray-200 focus:ring-blue-500"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="staff_password">Temporary Password *</Label>
+              <Input
+                id="staff_password"
+                type="password"
+                value={staffForm.password}
+                onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
+                placeholder="At least 8 characters"
+                className="border-gray-200 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAddStaffOpen(false)}
+                className="border-gray-200"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={createStaffMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {createStaffMutation.isPending ? 'Creating...' : 'Create Staff'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================
+          🔑 RESET PASSWORD
+          ============================================================ */}
+      <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Set a new password for <strong>{resetTarget?.profile?.full_name || resetTarget?.email}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new_password">New Password *</Label>
+              <Input
+                id="new_password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="At least 8 characters"
+                className="border-gray-200 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm_password">Confirm Password *</Label>
+              <Input
+                id="confirm_password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Re-enter the new password"
+                className="border-gray-200 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsResetDialogOpen(false)}
+                className="border-gray-200"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={resetPasswordMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {resetPasswordMutation.isPending ? 'Resetting...' : 'Reset Password'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================
+          🗑️ REMOVE CONFIRMATION
           ============================================================ */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogTitle>
+              Remove {selectedUser?.role?.role_name === 'Staff' ? 'Staff' : 'User'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <strong>{selectedUser?.profile?.full_name}</strong>?
-              This action cannot be undone. The user will be soft-deleted (hidden from the system).
+              Are you sure you want to remove <strong>{selectedUser?.profile?.full_name}</strong>?
+              This action cannot be undone. The account will be soft-deleted (hidden from the system).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -489,7 +694,7 @@ export default function AdminUsers() {
               onClick={() => deleteUserMutation.mutate(selectedUser?.id)}
               className="bg-rose-600 hover:bg-rose-700"
             >
-              {deleteUserMutation.isPending ? 'Deleting...' : 'Delete'}
+              {deleteUserMutation.isPending ? 'Removing...' : 'Remove'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

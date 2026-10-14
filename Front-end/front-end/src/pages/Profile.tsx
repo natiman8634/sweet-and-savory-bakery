@@ -12,6 +12,7 @@ import {
   Info,
   LogOut,
   Shield,
+  BadgeCheck,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -76,6 +77,8 @@ export default function Profile() {
               <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
                 {user.role === 'Admin' ? (
                   <><Shield className="h-3 w-3" /> Admin</>
+                ) : user.role === 'Staff' ? (
+                  <><BadgeCheck className="h-3 w-3" /> Staff</>
                 ) : (
                   <><User className="h-3 w-3" /> Customer</>
                 )}

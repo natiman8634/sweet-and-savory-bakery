@@ -13,7 +13,7 @@ import {
 } from '../ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
-import { Menu, ShoppingCart, LogOut, User, LayoutDashboard, Package, Home, ShoppingBag, Users, Star, Cake, ClipboardList } from 'lucide-react';
+import { Menu, ShoppingCart, LogOut, User, LayoutDashboard, Package, ShoppingBag, Users, Star, Cake } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
 
@@ -23,6 +23,25 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin');
+
+  // Back-office: Admins get everything, Staff run orders and stock
+  const isAdmin = user?.role === 'Admin';
+  const isStaff = user?.role === 'Staff';
+  const isBackOffice = isAdmin || isStaff;
+
+  const roleLabel = isAdmin ? 'Administrator' : isStaff ? 'Staff' : 'Customer';
+
+  const backOfficeLinks = [
+    { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/admin/products', label: 'Products', icon: Package },
+    { to: '/admin/orders', label: 'Orders', icon: ShoppingBag },
+    ...(isAdmin
+      ? [
+          { to: '/admin/users', label: 'Users', icon: Users },
+          { to: '/admin/reviews', label: 'Reviews', icon: Star },
+        ]
+      : []),
+  ];
 
   const handleLogout = () => {
     logout();
@@ -42,9 +61,9 @@ export default function Navbar() {
 
   // Navigation links (public)
   const navLinks = [
-    { to: '/', label: 'Home', icon: Home },
-    { to: '/products', label: 'Products', icon: Package },
-    ...(user ? [{ to: '/orders', label: 'Orders', icon: ClipboardList }] : []),
+    { to: '/', label: 'Home' },
+    { to: '/products', label: 'Products' },
+    ...(user ? [{ to: '/orders', label: 'Orders' }] : []),
   ];
 
   return (
@@ -73,13 +92,12 @@ export default function Navbar() {
                 key={link.to}
                 to={link.to}
                 className={cn(
-                  'flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200',
+                  'flex items-center px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200',
                   isActive
                     ? 'bg-red-50 text-red-700'
                     : 'text-red-600 hover:bg-red-50 hover:text-red-700'
                 )}
               >
-                <link.icon className="h-4 w-4" />
                 {link.label}
               </Link>
             );
@@ -119,12 +137,23 @@ export default function Navbar() {
                   <DropdownMenuItem onClick={() => navigate('/profile')}>
                     <User className="mr-2 h-4 w-4" /> Profile
                   </DropdownMenuItem>
-                  {user.role === 'Admin' && (
-                    <DropdownMenuItem onClick={() => navigate('/admin/dashboard')}>
-                      <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
-                    </DropdownMenuItem>
-                  )}
                 </DropdownMenuGroup>
+                {isBackOffice && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel>{isAdmin ? 'Admin Panel' : 'Staff Panel'}</DropdownMenuLabel>
+                      {backOfficeLinks.map((link) => (
+                        <DropdownMenuItem
+                          key={link.to}
+                          onClick={() => navigate(link.to)}
+                        >
+                          <link.icon className="mr-2 h-4 w-4" /> {link.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuGroup>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
@@ -179,45 +208,26 @@ export default function Navbar() {
                       </Avatar>
                       <div>
                         <p className="font-semibold text-gray-900">{user.profile?.full_name || 'User'}</p>
-                        <p className="text-xs text-gray-500">{user.role === 'Admin' ? 'Administrator' : 'Customer'}</p>
+                        <p className="text-xs text-gray-500">{roleLabel}</p>
                       </div>
                     </div>
 
-                    {user.role === 'Admin' && (
+                    {isBackOffice && (
                       <>
                         <div className="pt-2 border-t border-gray-200">
-                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">Admin Panel</p>
+                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">
+                            {isAdmin ? 'Admin Panel' : 'Staff Panel'}
+                          </p>
                         </div>
-                        <Link
-                          to="/admin/dashboard"
-                          className="flex items-center gap-3 text-lg font-medium text-gray-700 hover:text-red-600"
-                        >
-                          <LayoutDashboard className="h-5 w-5" /> Dashboard
-                        </Link>
-                        <Link
-                          to="/admin/products"
-                          className="flex items-center gap-3 text-lg font-medium text-gray-700 hover:text-red-600"
-                        >
-                          <Package className="h-5 w-5" /> Products
-                        </Link>
-                        <Link
-                          to="/admin/orders"
-                          className="flex items-center gap-3 text-lg font-medium text-gray-700 hover:text-red-600"
-                        >
-                          <ShoppingBag className="h-5 w-5" /> Orders
-                        </Link>
-                        <Link
-                          to="/admin/users"
-                          className="flex items-center gap-3 text-lg font-medium text-gray-700 hover:text-red-600"
-                        >
-                          <Users className="h-5 w-5" /> Users
-                        </Link>
-                        <Link
-                          to="/admin/reviews"
-                          className="flex items-center gap-3 text-lg font-medium text-gray-700 hover:text-red-600"
-                        >
-                          <Star className="h-5 w-5" /> Reviews
-                        </Link>
+                        {backOfficeLinks.map((link) => (
+                          <Link
+                            key={link.to}
+                            to={link.to}
+                            className="flex items-center gap-3 text-lg font-medium text-gray-700 hover:text-red-600"
+                          >
+                            <link.icon className="h-5 w-5" /> {link.label}
+                          </Link>
+                        ))}
                       </>
                     )}
                     <button

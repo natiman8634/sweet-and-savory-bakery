@@ -3,12 +3,14 @@ import { LayoutDashboard, Package, ShoppingBag, Users, Star, Settings, HelpCircl
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
 
+// Staff can run the day-to-day: orders, status updates and stock.
+// Managing users/roles and moderating reviews stays with Admins.
 const menuLinks = [
-  { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/admin/products', label: 'Products', icon: Package },
-  { to: '/admin/orders', label: 'Orders', icon: ShoppingBag },
-  { to: '/admin/users', label: 'Users', icon: Users },
-  { to: '/admin/reviews', label: 'Reviews', icon: Star },
+  { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['Admin', 'Staff'] },
+  { to: '/admin/products', label: 'Products', icon: Package, roles: ['Admin', 'Staff'] },
+  { to: '/admin/orders', label: 'Orders', icon: ShoppingBag, roles: ['Admin', 'Staff'] },
+  { to: '/admin/users', label: 'Users', icon: Users, roles: ['Admin'] },
+  { to: '/admin/reviews', label: 'Reviews', icon: Star, roles: ['Admin'] },
 ];
 
 const bottomLinks = [
@@ -24,7 +26,8 @@ interface SidebarProps {
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const links = menuLinks.filter((link) => link.roles.includes(user?.role || ''));
 
   const handleLogout = () => {
     logout();
@@ -56,7 +59,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2">Menu</p>
         )}
         <div className="space-y-0.5">
-          {menuLinks.map((link) => {
+          {links.map((link) => {
             const isActive = location.pathname === link.to ||
               (link.to !== '/' && location.pathname.startsWith(link.to));
 

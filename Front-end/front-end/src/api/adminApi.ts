@@ -89,10 +89,14 @@ export interface AdminOrdersResponse {
     offset: number;
     hasMore: boolean;
     filters: any;
+    statusBreakdown: Array<{ status: string; count: number }>;
+    activeOrders: number;
     summary: {
       totalOrders: number;
       totalRevenue: number;
       averageOrderValue: number;
+      minOrderValue: number;
+      maxOrderValue: number;
     };
   };
 }
@@ -166,8 +170,22 @@ export const getAdminUsers = async (params?: { role?: string; page?: number; lim
   return response.data;
 };
 
-export const updateUserRole = async (userId: string, roleId: number) => {
-  const response = await apiClient.patch(`/admin/users/${userId}/role`, { role_id: roleId });
+export interface CreateStaffData {
+  full_name: string;
+  email: string;
+  password: string;
+  phone?: string;
+}
+
+export const createStaff = async (data: CreateStaffData) => {
+  const response = await apiClient.post('/admin/users/staff', data);
+  return response.data;
+};
+
+export const resetUserPassword = async (userId: string, newPassword: string) => {
+  const response = await apiClient.patch(`/admin/users/${userId}/reset-password`, {
+    new_password: newPassword,
+  });
   return response.data;
 };
 
