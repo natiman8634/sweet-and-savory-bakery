@@ -327,12 +327,17 @@ export const getAllProductsAdmin = async (req: AuthRequest, res: Response) => {
     const search = getStringParam(req.query.search);
     const minPrice = getNumberParam(req.query.minPrice);
     const maxPrice = getNumberParam(req.query.maxPrice);
-    const includeUnavailable = getBooleanParam(req.query.includeUnavailable);
+    // Admin list includes unavailable products by default (only excluded when
+    // includeUnavailable=false is passed explicitly), so deactivating a product
+    // keeps it visible here instead of making it look deleted.
+    const includeUnavailable =
+      req.query.includeUnavailable === undefined
+        ? true
+        : getBooleanParam(req.query.includeUnavailable);
 
     // Build filter conditions
     const where: any = {};
 
-    // Include unavailable products if requested
     if (!includeUnavailable) {
       where.is_available = true;
     }

@@ -31,14 +31,30 @@ import { Badge } from '../components/ui/badge';
 // ============================================================
 // 1. Validation Schema - MATCHES BACKEND
 // ============================================================
+// Phone: digits (with +, spaces, dashes), at least 10 digits
+const phoneRegex = /^\+?\d[\d\s-]{9,}$/;
+
 const checkoutSchema = z.object({
-  full_name: z.string().min(2, 'Full name is required'),
-  phone: z.string().min(10, 'Phone number is required'),
-  address: z.string().min(5, 'Address is required'),
+  full_name: z
+    .string()
+    .trim()
+    .min(2, 'Full name is required')
+    .refine((value) => !/\d/.test(value), 'Full name cannot contain numbers'),
+  phone: z
+    .string()
+    .trim()
+    .regex(phoneRegex, 'Enter a valid phone number (at least 10 digits, e.g. +251 911 123 456)'),
+  address: z.string().trim().min(5, 'Address is required'),
   order_type: z.enum(['Pickup', 'Delivery'], {
     required_error: 'Please select order type',
   }),
-  scheduled_for: z.string().optional(),
+  scheduled_for: z
+    .string()
+    .optional()
+    .refine(
+      (value) => !value || !isNaN(new Date(value).getTime()),
+      'Please choose a valid date and time'
+    ),
   payment_method: z.enum(['Cash', 'Chapa'], {
     required_error: 'Please select payment method',
   }),
@@ -237,6 +253,7 @@ export default function Checkout() {
                       <FormControl>
                         <Input 
                           placeholder="John Doe" 
+                          autoComplete="name"
                           {...field}
                         />
                       </FormControl>
@@ -254,6 +271,8 @@ export default function Checkout() {
                       <FormControl>
                         <Input 
                           placeholder="+251 911 000 000" 
+                          type="tel"
+                          autoComplete="tel"
                           {...field}
                         />
                       </FormControl>

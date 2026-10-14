@@ -132,6 +132,9 @@ export interface CreateProductData {
 
 export const getAdminProducts = async (params?: { category?: number; search?: string }) => {
   const queryParams = new URLSearchParams();
+  // The admin list must always include inactive products, otherwise a deactivated
+  // product disappears from the dashboard and can never be re-activated.
+  queryParams.append('includeUnavailable', 'true');
   if (params?.category) queryParams.append('category', String(params.category));
   if (params?.search) queryParams.append('search', params.search);
   const response = await apiClient.get(`/admin/products?${queryParams.toString()}`);

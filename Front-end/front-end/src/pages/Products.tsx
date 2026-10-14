@@ -30,7 +30,7 @@ import {
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import {
-  RefreshCw, Search, Plus, Minus, MoreHorizontal, Edit, Trash2,
+  RefreshCw, Search, Plus, MoreHorizontal, Edit, Trash2,
   Package, AlertCircle, CheckCircle, XCircle, Filter, AlertTriangle, Star, ChevronDown, Upload,
 } from 'lucide-react';
 
@@ -112,6 +112,11 @@ function ProductForm({ categories, initialData, isEdit, onSubmit, isLoading }: P
     if (formData.price <= 0) { alert('Price must be greater than 0'); return; }
     if (formData.stock_quantity < 0) { alert('Stock quantity cannot be negative'); return; }
     if (!formData.category_id) { alert('Please select a category'); return; }
+    const imageUrl = formData.image_url.trim();
+    if (imageMode === 'url' && imageUrl && !/^(https?:\/\/|\/\/|\/|data:image\/)/i.test(imageUrl)) {
+      alert('Please enter a valid image URL (it must start with http:// or https://)');
+      return;
+    }
     onSubmit(formData);
   };
 
@@ -190,90 +195,6 @@ function ProductForm({ categories, initialData, isEdit, onSubmit, isLoading }: P
 }
 
 // ============================================================
-// 📦 INLINE STOCK QUANTITY EDITOR
-// Adjust a product's stock directly from the list (no dialog)
-// ============================================================
-function StockStepper({
-  product,
-  onSave,
-  isSaving,
-}: {
-  product: any;
-  onSave: (quantity: number) => void;
-  isSaving: boolean;
-}) {
-  const current = Number(product.stock_quantity) || 0;
-  const [value, setValue] = useState(String(current));
-  const lastCommittedRef = useRef(current);
-
-  // Keep the input in sync when fresh data arrives from the server
-  useEffect(() => {
-    setValue(String(current));
-    lastCommittedRef.current = current;
-  }, [current]);
-
-  const commit = (raw: string) => {
-    const parsed = parseInt(raw, 10);
-    const next = Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
-    setValue(String(next));
-    // Skip if unchanged, or already in flight / just saved
-    if (next === current || next === lastCommittedRef.current) return;
-    lastCommittedRef.current = next;
-    onSave(next);
-  };
-
-  const step = (delta: number) => {
-    const parsed = parseInt(value, 10);
-    const base = Number.isNaN(parsed) ? current : Math.max(0, parsed);
-    commit(String(Math.max(0, base + delta)));
-  };
-
-  return (
-    <div className="inline-flex items-center gap-1">
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={isSaving || current <= 0}
-        onClick={() => step(-1)}
-        aria-label={`Decrease stock for ${product.name}`}
-        className="h-7 w-7 p-0 border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-      >
-        <Minus className="h-3.5 w-3.5" />
-      </Button>
-      <Input
-        type="number"
-        min="0"
-        inputMode="numeric"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={(e) => commit(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            (e.target as HTMLInputElement).blur();
-          }
-        }}
-        aria-label={`Stock quantity for ${product.name}`}
-        className="h-7 w-14 px-1 text-center text-xs border-slate-200 focus:ring-blue-500"
-      />
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={isSaving}
-        onClick={() => step(1)}
-        aria-label={`Increase stock for ${product.name}`}
-        className="h-7 w-7 p-0 border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </Button>
-      {isSaving && <RefreshCw className="h-3 w-3 animate-spin text-blue-500" />}
-    </div>
-  );
-}
-
-// ============================================================
 // ADMIN PRODUCTS VIEW (used by /admin/products route)
 // ============================================================
 function AdminProductsView() {
@@ -307,18 +228,6 @@ function AdminProductsView() {
   const deleteMutation = useMutation({ mutationFn: (id: string) => deleteProduct(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); setIsDeleteDialogOpen(false); setSelectedProduct(null); }, onError: (err: any) => { alert(err?.response?.data?.message || 'Failed to delete product'); } });
   const toggleAvailabilityMutation = useMutation({ mutationFn: (id: string) => toggleProductAvailability(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); }, onError: (err: any) => { alert(err?.response?.data?.message || 'Failed to toggle availability'); } });
 
-  // 📦 Quick stock adjustment straight from the list
-  const updateStockMutation = useMutation({
-    mutationFn: ({ id, stock_quantity }: { id: string; stock_quantity: number }) => updateProduct(id, { stock_quantity }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); },
-    onError: (err: any) => {
-      alert(err?.response?.data?.message || 'Failed to update stock');
-      // Re-sync with the server value after a failed update
-      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
-    },
-  });
-  const savingStockId = updateStockMutation.isPending ? updateStockMutation.variables?.id : undefined;
-
   useEffect(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
@@ -335,7 +244,7 @@ function AdminProductsView() {
     <div className="space-y-6 bg-[#F8FAFC] min-h-screen p-4 md:p-6 rounded-2xl">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div><h1 className="text-xl sm:text-2xl font-bold text-slate-800">Manage Products</h1><p className="text-xs sm:text-sm text-gray-500">Adjust daily stock quantities and manage your product catalog</p></div>
+        <div><h1 className="text-xl sm:text-2xl font-bold text-slate-800">Manage Products</h1><p className="text-xs sm:text-sm text-gray-500">View stock levels and manage your product catalog</p></div>
         <div className="flex items-center gap-2">
           {isFetching && <span className="flex items-center text-xs text-gray-500"><RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" /> Loading...</span>}
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="border-blue-500 text-blue-600 hover:bg-blue-50 h-9"><RefreshCw className="h-4 w-4 mr-2" /> Refresh</Button>
@@ -422,11 +331,7 @@ function AdminProductsView() {
                       {product.stock_quantity === 0 && <span className="ml-1 font-semibold text-rose-600">(Out)</span>}
                       {product.stock_quantity > 0 && product.stock_quantity <= 5 && <span className="ml-1 font-semibold text-amber-600">(Low)</span>}
                     </span>
-                    <StockStepper
-                      product={product}
-                      isSaving={savingStockId === product.id}
-                      onSave={(quantity) => updateStockMutation.mutate({ id: product.id, stock_quantity: quantity })}
-                    />
+                    <span className="text-sm font-semibold text-slate-800">{product.stock_quantity}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-slate-800">${Number(product.price).toFixed(2)}</span>
@@ -462,11 +367,7 @@ function AdminProductsView() {
                         <TableCell className="font-semibold text-slate-800">${Number(product.price).toFixed(2)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <StockStepper
-                              product={product}
-                              isSaving={savingStockId === product.id}
-                              onSave={(quantity) => updateStockMutation.mutate({ id: product.id, stock_quantity: quantity })}
-                            />
+                            <span className="text-sm font-semibold text-slate-800">{product.stock_quantity}</span>
                             {product.stock_quantity === 0 ? (
                               <span className="text-[10px] font-semibold text-rose-600">Out</span>
                             ) : product.stock_quantity <= 5 ? (
