@@ -95,7 +95,7 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold text-slate-800">📊 Dashboard</h1>
           <div className="h-10 w-24 bg-gray-200 rounded animate-pulse"></div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="h-32 bg-gray-200 rounded-xl animate-pulse"></div>
           ))}
@@ -208,34 +208,36 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {quickStats.map((stat, index) => (
           <Card key={index} className="hover:shadow-lg transition-shadow border-0 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">{stat.label}</p>
-                  <p className="text-2xl font-bold mt-1 text-slate-800">{stat.value}</p>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-gray-500">{stat.label}</p>
+                  <p className="text-xl sm:text-2xl font-bold mt-1 text-slate-800 break-words">
+                    {stat.value}
+                  </p>
                 </div>
-                <div className={`p-3 rounded-full ${stat.iconBg}`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                <div className={`p-2 sm:p-3 rounded-full shrink-0 ${stat.iconBg}`}>
+                  <stat.icon className={`h-4 w-4 sm:h-5 sm:w-5 ${stat.color}`} />
                 </div>
               </div>
-              <div className="flex items-center gap-1 mt-3">
+              <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 mt-3">
                 {stat.trend === 'up' ? (
                   <TrendingUp className="h-4 w-4 text-emerald-500" />
                 ) : (
                   <TrendingDown className="h-4 w-4 text-rose-500" />
                 )}
                 <span
-                  className={`text-sm font-medium ${
+                  className={`text-xs sm:text-sm font-medium ${
                     stat.trend === 'up' ? 'text-emerald-600' : 'text-rose-600'
                   }`}
                 >
                   {stat.change > 0 ? '+' : ''}
                   {stat.change}%
                 </span>
-                <span className="text-xs text-gray-400">vs last week</span>
+                <span className="text-[10px] sm:text-xs text-gray-400">vs last week</span>
               </div>
             </CardContent>
           </Card>

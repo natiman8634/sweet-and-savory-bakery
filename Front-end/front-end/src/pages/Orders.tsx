@@ -29,7 +29,6 @@ import {
   ShoppingBag,
   Search,
   Calendar,
-  AlertCircle,
   Eye,
   Store,
   Wallet,
@@ -257,13 +256,48 @@ const statusBadgeStyles: Record<string, string> = {
   Cancelled: 'bg-rose-100 text-rose-800 border-rose-200',
 };
 
-const orderStats = [
-  { label: 'All Orders', value: 80, icon: ShoppingBag, color: 'bg-blue-50 text-blue-600' },
-  { label: 'Active Orders', value: 50, icon: Package, color: 'bg-emerald-50 text-emerald-600' },
-  { label: 'Pending Orders', value: 15, icon: Clock, color: 'bg-amber-50 text-amber-600' },
-  { label: 'Fraud Orders', value: 5, icon: AlertCircle, color: 'bg-rose-50 text-rose-600' },
-  { label: 'Cancelled Orders', value: 10, icon: XCircle, color: 'bg-gray-100 text-gray-600' },
-];
+// Summary cards are built from the real API meta so they reflect
+// the current filters instead of placeholder numbers.
+const buildOrderStats = (meta: any) => {
+  const summary = meta?.summary;
+  const breakdown: Array<{ status: string; count: number }> =
+    meta?.statusBreakdown || [];
+  const countOf = (name: string) =>
+    breakdown.find((s) => s.status?.toLowerCase() === name.toLowerCase())?.count || 0;
+
+  return [
+    {
+      label: 'All Orders',
+      value: summary?.totalOrders ?? 0,
+      icon: ShoppingBag,
+      color: 'bg-blue-50 text-blue-600',
+    },
+    {
+      label: 'Active Orders',
+      value: meta?.activeOrders ?? 0,
+      icon: Package,
+      color: 'bg-emerald-50 text-emerald-600',
+    },
+    {
+      label: 'Completed',
+      value: countOf('Completed'),
+      icon: CheckCircle,
+      color: 'bg-purple-50 text-purple-600',
+    },
+    {
+      label: 'Cancelled',
+      value: countOf('Cancelled'),
+      icon: XCircle,
+      color: 'bg-rose-50 text-rose-600',
+    },
+    {
+      label: 'Total Revenue',
+      value: `$${Number(summary?.totalRevenue || 0).toFixed(2)}`,
+      icon: Wallet,
+      color: 'bg-amber-50 text-amber-600',
+    },
+  ];
+};
 
 // ============================================================
 // ADMIN ORDER CARD (Mobile)
@@ -354,6 +388,7 @@ function AdminOrdersView() {
       )
     : allOrders;
   const meta = data?.meta;
+  const orderStats = buildOrderStats(meta);
 
   return (
     <div className="space-y-4 md:space-y-6 bg-[#F8FAFC] min-h-screen p-3 sm:p-4 md:p-6 rounded-2xl">
@@ -380,7 +415,7 @@ function AdminOrdersView() {
           <Card key={index} className="border-0 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
-                <div><p className="text-[10px] sm:text-xs font-medium text-gray-500">{stat.label}</p><p className="text-lg sm:text-xl font-bold text-slate-800">{stat.value}</p></div>
+                <div className="min-w-0"><p className="text-[10px] sm:text-xs font-medium text-gray-500">{stat.label}</p><p className="text-base sm:text-xl font-bold text-slate-800 truncate">{stat.value}</p></div>
                 <div className={`p-1.5 sm:p-2 rounded-lg ${stat.color}`}><stat.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></div>
               </div>
             </CardContent>

@@ -17,7 +17,14 @@ import AdminUsers from './pages/admin/Users';
 import AdminReviews from './pages/admin/Reviews';
 
 // ✅ Protected Route Component
-function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
+// `allowedRoles` = who may view the page. Omit it for any logged-in user.
+function ProtectedRoute({
+  children,
+  allowedRoles,
+}: {
+  children: React.ReactNode;
+  allowedRoles?: string[];
+}) {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
@@ -28,12 +35,16 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
     return <Navigate to="/login" replace />;
   }
 
-  if (adminOnly && user.role !== 'Admin') {
+  if (allowedRoles && !allowedRoles.includes(user.role || '')) {
     return <Navigate to="/" replace />;
   }
 
   return children;
 }
+
+// Back-office roles: Admin has full access, Staff handles orders and stock
+const BACK_OFFICE_ROLES = ['Admin', 'Staff'];
+const ADMIN_ONLY = ['Admin'];
 
 function App() {
   return (
@@ -83,11 +94,11 @@ function App() {
             }
           />
 
-          {/* Admin Routes */}
+          {/* Admin / Staff Routes */}
           <Route
             path="admin/dashboard"
             element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute allowedRoles={BACK_OFFICE_ROLES}>
                 <AdminDashboard />
               </ProtectedRoute>
             }
@@ -95,7 +106,7 @@ function App() {
           <Route
             path="admin/orders"
             element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute allowedRoles={BACK_OFFICE_ROLES}>
                 <AdminOrders />
               </ProtectedRoute>
             }
@@ -103,29 +114,30 @@ function App() {
           <Route
             path="admin/products"
             element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute allowedRoles={BACK_OFFICE_ROLES}>
                 <AdminProducts />
               </ProtectedRoute>
             }
           />
 
+          {/* Admin-only Routes */}
           <Route
-  path="admin/users"
-  element={
-    <ProtectedRoute adminOnly>
-      <AdminUsers />
-    </ProtectedRoute>
-  }
-/>
+            path="admin/users"
+            element={
+              <ProtectedRoute allowedRoles={ADMIN_ONLY}>
+                <AdminUsers />
+              </ProtectedRoute>
+            }
+          />
 
-<Route
-  path="admin/reviews"
-  element={
-    <ProtectedRoute adminOnly>
-      <AdminReviews />
-    </ProtectedRoute>
-  }
-/>
+          <Route
+            path="admin/reviews"
+            element={
+              <ProtectedRoute allowedRoles={ADMIN_ONLY}>
+                <AdminReviews />
+              </ProtectedRoute>
+            }
+          />
 
           {/* 404 */}
           <Route path="*" element={<div className="p-8 text-center">Page not found</div>} />

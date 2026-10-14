@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProducts, getCategories } from '../api/productApi';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import {
   getAdminProducts, createProduct, updateProduct, deleteProduct, toggleProductAvailability,
   type CreateProductData,
@@ -29,7 +30,7 @@ import {
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import {
-  RefreshCw, Search, Plus, MoreHorizontal, Edit, Trash2,
+  RefreshCw, Search, Plus, Minus, MoreHorizontal, Edit, Trash2,
   Package, AlertCircle, CheckCircle, XCircle, Filter, AlertTriangle, Star, ChevronDown, Upload,
 } from 'lucide-react';
 
@@ -189,10 +190,97 @@ function ProductForm({ categories, initialData, isEdit, onSubmit, isLoading }: P
 }
 
 // ============================================================
+// 📦 INLINE STOCK QUANTITY EDITOR
+// Adjust a product's stock directly from the list (no dialog)
+// ============================================================
+function StockStepper({
+  product,
+  onSave,
+  isSaving,
+}: {
+  product: any;
+  onSave: (quantity: number) => void;
+  isSaving: boolean;
+}) {
+  const current = Number(product.stock_quantity) || 0;
+  const [value, setValue] = useState(String(current));
+  const lastCommittedRef = useRef(current);
+
+  // Keep the input in sync when fresh data arrives from the server
+  useEffect(() => {
+    setValue(String(current));
+    lastCommittedRef.current = current;
+  }, [current]);
+
+  const commit = (raw: string) => {
+    const parsed = parseInt(raw, 10);
+    const next = Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
+    setValue(String(next));
+    // Skip if unchanged, or already in flight / just saved
+    if (next === current || next === lastCommittedRef.current) return;
+    lastCommittedRef.current = next;
+    onSave(next);
+  };
+
+  const step = (delta: number) => {
+    const parsed = parseInt(value, 10);
+    const base = Number.isNaN(parsed) ? current : Math.max(0, parsed);
+    commit(String(Math.max(0, base + delta)));
+  };
+
+  return (
+    <div className="inline-flex items-center gap-1">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={isSaving || current <= 0}
+        onClick={() => step(-1)}
+        aria-label={`Decrease stock for ${product.name}`}
+        className="h-7 w-7 p-0 border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+      >
+        <Minus className="h-3.5 w-3.5" />
+      </Button>
+      <Input
+        type="number"
+        min="0"
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={(e) => commit(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        aria-label={`Stock quantity for ${product.name}`}
+        className="h-7 w-14 px-1 text-center text-xs border-slate-200 focus:ring-blue-500"
+      />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={isSaving}
+        onClick={() => step(1)}
+        aria-label={`Increase stock for ${product.name}`}
+        className="h-7 w-7 p-0 border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </Button>
+      {isSaving && <RefreshCw className="h-3 w-3 animate-spin text-blue-500" />}
+    </div>
+  );
+}
+
+// ============================================================
 // ADMIN PRODUCTS VIEW (used by /admin/products route)
 // ============================================================
 function AdminProductsView() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  // Staff can adjust stock and edit details, but adding/deleting products stays with Admins
+  const isAdmin = user?.role === 'Admin';
   const [searchInput, setSearchInput] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [stockFilter, setStockFilter] = useState<string>('all');
@@ -219,6 +307,18 @@ function AdminProductsView() {
   const deleteMutation = useMutation({ mutationFn: (id: string) => deleteProduct(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); setIsDeleteDialogOpen(false); setSelectedProduct(null); }, onError: (err: any) => { alert(err?.response?.data?.message || 'Failed to delete product'); } });
   const toggleAvailabilityMutation = useMutation({ mutationFn: (id: string) => toggleProductAvailability(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); }, onError: (err: any) => { alert(err?.response?.data?.message || 'Failed to toggle availability'); } });
 
+  // 📦 Quick stock adjustment straight from the list
+  const updateStockMutation = useMutation({
+    mutationFn: ({ id, stock_quantity }: { id: string; stock_quantity: number }) => updateProduct(id, { stock_quantity }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); },
+    onError: (err: any) => {
+      alert(err?.response?.data?.message || 'Failed to update stock');
+      // Re-sync with the server value after a failed update
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+    },
+  });
+  const savingStockId = updateStockMutation.isPending ? updateStockMutation.variables?.id : undefined;
+
   useEffect(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
@@ -235,11 +335,11 @@ function AdminProductsView() {
     <div className="space-y-6 bg-[#F8FAFC] min-h-screen p-4 md:p-6 rounded-2xl">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div><h1 className="text-xl sm:text-2xl font-bold text-slate-800">Manage Products</h1><p className="text-xs sm:text-sm text-gray-500">View, add, edit, and manage your product catalog</p></div>
+        <div><h1 className="text-xl sm:text-2xl font-bold text-slate-800">Manage Products</h1><p className="text-xs sm:text-sm text-gray-500">Adjust daily stock quantities and manage your product catalog</p></div>
         <div className="flex items-center gap-2">
           {isFetching && <span className="flex items-center text-xs text-gray-500"><RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" /> Loading...</span>}
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="border-blue-500 text-blue-600 hover:bg-blue-50 h-9"><RefreshCw className="h-4 w-4 mr-2" /> Refresh</Button>
-          <Button size="sm" onClick={() => setIsAddDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white h-9"><Plus className="h-4 w-4 mr-2" /> Add Product</Button>
+          {isAdmin && <Button size="sm" onClick={() => setIsAddDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white h-9"><Plus className="h-4 w-4 mr-2" /> Add Product</Button>}
         </div>
       </div>
 
@@ -308,14 +408,25 @@ function AdminProductsView() {
                       <DropdownMenuContent align="end" className="w-48">
                         <DropdownMenuItem onClick={() => toggleAvailabilityMutation.mutate(product.id)}>{product.is_available ? <><XCircle className="h-4 w-4 mr-2 text-rose-500" /> Deactivate</> : <><CheckCircle className="h-4 w-4 mr-2 text-emerald-500" /> Activate</>}</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEdit(product)}><Edit className="h-4 w-4 mr-2 text-blue-500" /> Edit</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(product)} className="text-rose-600"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
+                        {isAdmin && <DropdownMenuItem onClick={() => handleDelete(product)} className="text-rose-600"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline" className="font-normal text-xs">{product.category?.category_name || 'Uncategorized'}</Badge>
                     <Badge className={`${badgeClass} border-0 text-xs`}>{product.is_available ? 'Active' : 'Inactive'}</Badge>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${product.stock_quantity <= 5 && product.is_available ? 'bg-amber-100 text-amber-700' : product.stock_quantity === 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>{product.stock_quantity} in stock</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-gray-500">
+                      Stock
+                      {product.stock_quantity === 0 && <span className="ml-1 font-semibold text-rose-600">(Out)</span>}
+                      {product.stock_quantity > 0 && product.stock_quantity <= 5 && <span className="ml-1 font-semibold text-amber-600">(Low)</span>}
+                    </span>
+                    <StockStepper
+                      product={product}
+                      isSaving={savingStockId === product.id}
+                      onSave={(quantity) => updateStockMutation.mutate({ id: product.id, stock_quantity: quantity })}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-slate-800">${Number(product.price).toFixed(2)}</span>
@@ -349,7 +460,20 @@ function AdminProductsView() {
                         </div></TableCell>
                         <TableCell><Badge variant="outline" className="font-normal text-xs">{product.category?.category_name || 'Uncategorized'}</Badge></TableCell>
                         <TableCell className="font-semibold text-slate-800">${Number(product.price).toFixed(2)}</TableCell>
-                        <TableCell><span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${product.stock_quantity <= 5 && product.is_available ? 'bg-amber-100 text-amber-700' : product.stock_quantity === 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>{product.stock_quantity}</span></TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <StockStepper
+                              product={product}
+                              isSaving={savingStockId === product.id}
+                              onSave={(quantity) => updateStockMutation.mutate({ id: product.id, stock_quantity: quantity })}
+                            />
+                            {product.stock_quantity === 0 ? (
+                              <span className="text-[10px] font-semibold text-rose-600">Out</span>
+                            ) : product.stock_quantity <= 5 ? (
+                              <span className="text-[10px] font-semibold text-amber-600">Low</span>
+                            ) : null}
+                          </div>
+                        </TableCell>
                         <TableCell><Badge className={`${badgeClass} border-0 px-3 py-1 font-medium`}>{product.is_available ? 'Active' : 'Inactive'}</Badge></TableCell>
                         <TableCell className="text-sm text-gray-600"><Star className="h-3 w-3 fill-amber-400 text-amber-400 inline" /> {product.averageRating?.toFixed(1) || '0.0'} ({product.reviewsCount || 0})</TableCell>
                         <TableCell className="text-right">
@@ -358,7 +482,7 @@ function AdminProductsView() {
                             <DropdownMenuContent align="end" className="w-48">
                               <DropdownMenuItem onClick={() => toggleAvailabilityMutation.mutate(product.id)}>{product.is_available ? <><XCircle className="h-4 w-4 mr-2 text-rose-500" /> Deactivate</> : <><CheckCircle className="h-4 w-4 mr-2 text-emerald-500" /> Activate</>}</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleEdit(product)}><Edit className="h-4 w-4 mr-2 text-blue-500" /> Edit</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDelete(product)} className="text-rose-600"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
+                              {isAdmin && <DropdownMenuItem onClick={() => handleDelete(product)} className="text-rose-600"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -375,7 +499,7 @@ function AdminProductsView() {
       {!isLoading && products.length === 0 && (
         <div className="flex flex-col items-center gap-4 py-12 text-gray-500">
           <Package className="h-16 w-16 text-gray-300" /><p className="text-lg font-medium text-gray-600">No products found</p><p className="text-sm text-gray-400">Add your first product to get started</p>
-          <Button onClick={() => setIsAddDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700"><Plus className="h-4 w-4 mr-2" /> Add Product</Button>
+          {isAdmin && <Button onClick={() => setIsAddDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700"><Plus className="h-4 w-4 mr-2" /> Add Product</Button>}
         </div>
       )}
 
