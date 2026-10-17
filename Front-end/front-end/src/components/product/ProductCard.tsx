@@ -26,10 +26,10 @@ export default function ProductCard({
 
   const card = (
     <Card
-      className={`overflow-hidden border-0 transition-all duration-300 flex flex-col ${
+      className={`overflow-hidden border-0 transition-all duration-300 flex flex-col h-full ${
         isCompact
           ? 'shadow-sm hover:shadow-lg hover:-translate-y-1 group'
-          : 'shadow-sm hover:shadow-xl [--card-spacing:0.75rem] sm:[--card-spacing:1rem]'
+          : 'shadow-sm hover:shadow-xl hover:-translate-y-1 cursor-pointer [--card-spacing:0.75rem] sm:[--card-spacing:1rem]'
       }`}
     >
       {/* Image */}
@@ -138,7 +138,11 @@ export default function ProductCard({
               size="sm"
               className="bg-red-600 hover:bg-red-500 gap-2 w-full sm:w-auto"
               disabled={product.stock_quantity === 0}
-              onClick={() => onAddToCart?.(product)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onAddToCart?.(product);
+              }}
             >
               <ShoppingCart className="w-4 h-4" /> Add to Cart
             </Button>
@@ -148,14 +152,10 @@ export default function ProductCard({
     </Card>
   );
 
-  // Compact variant wraps the entire card in a link
-  if (isCompact) {
-    return (
-      <Link to={`/products/${product.id}`} className="block">
-        {card}
-      </Link>
-    );
-  }
-
-  return card;
+  // Both variants wrap the entire card in a link to the product detail page
+  return (
+    <Link to={`/products/${product.id}`} className="block h-full">
+      {card}
+    </Link>
+  );
 }

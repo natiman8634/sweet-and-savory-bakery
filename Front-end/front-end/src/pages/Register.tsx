@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,10 +18,20 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 // ✅ Zod validation schema matching backend
 const registerSchema = z.object({
-  full_name: z.string().min(2, 'Full name must be at least 2 characters'),
+  full_name: z
+    .string()
+    .trim()
+    .min(2, 'Full name must be at least 2 characters')
+    .refine((value) => !/\d/.test(value), 'Full name cannot contain numbers'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  phone: z.string().optional(),
+  phone: z
+    .string()
+    .trim()
+    .refine(
+      (value) => !value || /^\+?\d[\d\s-]{6,}$/.test(value),
+      'Enter a valid phone number (digits, e.g. +251 911 123 456)'
+    ),
   default_address: z.string().optional(),
 });
 
@@ -32,6 +42,31 @@ export default function Register() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [nameWarning, setNameWarning] = useState<string | null>(null);
+  const nameWarningTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Strip digits from the Full Name field and warn the user when they try to enter one
+  const handleNameChange = (raw: string, onChange: (value: string) => void) => {
+    const cleaned = raw.replace(/[0-9]/g, '');
+    if (cleaned !== raw) {
+      setNameWarning('Numbers are not allowed — please enter letters only');
+      if (nameWarningTimer.current) clearTimeout(nameWarningTimer.current);
+      nameWarningTimer.current = setTimeout(() => setNameWarning(null), 4000);
+    } else if (nameWarning) {
+      setNameWarning(null);
+      if (nameWarningTimer.current) {
+        clearTimeout(nameWarningTimer.current);
+        nameWarningTimer.current = null;
+      }
+    }
+    onChange(cleaned);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (nameWarningTimer.current) clearTimeout(nameWarningTimer.current);
+    };
+  }, []);
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -75,8 +110,18 @@ export default function Register() {
                   <FormItem>
                     <FormLabel>Full Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} />
+                      <Input
+                        placeholder="John Doe"
+                        autoComplete="name"
+                        {...field}
+                        onChange={(e) => handleNameChange(e.target.value, field.onChange)}
+                      />
                     </FormControl>
+                    {nameWarning && (
+                      <p role="alert" className="text-sm font-medium text-amber-600">
+                        {nameWarning}
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -111,10 +156,9 @@ export default function Register() {
                 control={form.control}
                 name="phone"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone (Optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="+251 911 000 000" {...field} />
+                  <FormItem>                      <FormLabel>Phone (Optional)</FormLabel>
+                      <FormControl>
+                        <Input type="tel" autoComplete="tel" placeholder="+251 911 000 000" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

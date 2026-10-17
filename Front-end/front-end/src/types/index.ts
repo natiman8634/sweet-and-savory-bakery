@@ -22,7 +22,12 @@ export interface Product {
   price: number;
   image_url: string;
   category_id: number;
-  category?: { id: number; category_name: string };
+  category?: {
+    id: number;
+    category_name: string;
+    parent_id?: number | null;
+    parent?: { id: number; category_name: string };
+  };
   stock_quantity: number;
   is_available: boolean;
   averageRating?: number;
