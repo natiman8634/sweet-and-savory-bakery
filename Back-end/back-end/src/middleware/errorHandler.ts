@@ -7,16 +7,12 @@ export const errorHandler = (
   res: Response, 
   next: NextFunction
 ) => {
-  // ✅ Log full error details for debugging
+  // Avoid logging request data or headers, which can contain passwords and tokens.
   console.error('❌ Error Handler:', {
-    message: err.message,
-    stack: err.stack,
+    name: err.name,
+    code: err.code,
     path: req.path,
     method: req.method,
-    body: req.body,
-    query: req.query,
-    params: req.params,
-    headers: req.headers
   });
 
   // ✅ Handle specific error types
@@ -29,6 +25,14 @@ export const errorHandler = (
   }
 
   if (err.name === 'PrismaClientKnownRequestError') {
+    if (['ETIMEDOUT', 'P1001', 'P1002'].includes(err.code)) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database temporarily unavailable',
+        error: 'Please try again later'
+      });
+    }
+
     // Handle Prisma specific errors
     switch (err.code) {
       case 'P2002':
