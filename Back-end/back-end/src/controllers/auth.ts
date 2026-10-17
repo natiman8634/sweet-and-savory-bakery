@@ -1,12 +1,10 @@
-import { prisma } from '../db.js';
+import prisma from '../lib/prisma.js';
 import bcrypt from 'bcrypt';
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { sendWelcomeEmail } from '../services/emailService.js';
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
-  console.log("📝 Register Request Body:", req.body); 
-
   // ✅ Check if body exists
   if (!req.body || typeof req.body !== 'object') {
     return res.status(400).json({ 
@@ -92,15 +90,18 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       token
     });
   } catch (error) {
-    console.error("Registration Error:", error);
+    console.error('Registration failed:', {
+      name: error instanceof Error ? error.name : 'UnknownError',
+      code: typeof error === 'object' && error !== null && 'code' in error
+        ? error.code
+        : undefined,
+    });
     // ✅ Pass error to error handler
     next(error);
   }
 };
 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
-  console.log("🔐 Login Request Body:", req.body); 
-
   // ✅ Check if body exists
   if (!req.body || typeof req.body !== 'object') {
     return res.status(400).json({
@@ -166,7 +167,12 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       }
     });
   } catch (error) {
-    console.error("Login Error Details:", error); 
+    console.error('Login failed:', {
+      name: error instanceof Error ? error.name : 'UnknownError',
+      code: typeof error === 'object' && error !== null && 'code' in error
+        ? error.code
+        : undefined,
+    });
     // ✅ Pass error to error handler
     next(error);
   }
