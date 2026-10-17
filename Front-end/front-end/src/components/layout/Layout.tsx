@@ -16,6 +16,7 @@ export default function Layout() {
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)');
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsDesktop(mq.matches);
     const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
     mq.addEventListener('change', handler);

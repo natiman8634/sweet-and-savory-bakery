@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -400,6 +401,93 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* ABOUT US SECTION */}
+      <section id="about-us" className="scroll-mt-20 bg-white py-16 sm:py-20">
+        <div className="container mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:items-center">
+          <div>
+            <p className="mb-3 text-lg font-bold uppercase tracking-[0.2em] text-red-500">
+             <h1>About Sweet Savory</h1> 
+            </p>
+            <h3 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-2xl">
+              Baked with care, shared with joy.
+            </h3>
+            <p className="mt-5 max-w-xl leading-7 text-slate-600">
+              Sweet &amp; Savory brings bakery favorites and comforting bites together in one
+              place. Whether you are treating yourself or sharing something delicious, we make
+              it easy to find a new favorite and have it delivered to your door.
+            </p>
+            <Link to="/products" className="mt-7 inline-flex">
+              <Button className="bg-red-500 text-white hover:bg-red-600">
+                Explore our menu <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+            <div className="rounded-2xl bg-rose-50 p-5">
+              <h3 className="font-semibold text-slate-800">A little something for everyone</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                Browse breads, pastries, cakes, and more.
+              </p>
+            </div>
+            <div className="rounded-2xl bg-amber-50 p-5">
+              <h3 className="font-semibold text-slate-800">Made for sharing</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                Find a treat for a quiet moment or a table full of friends.
+              </p>
+            </div>
+            <div className="rounded-2xl bg-orange-50 p-5">
+              <h3 className="font-semibold text-slate-800">From our menu to your door</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                Order online and enjoy your favorites at home.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer className="bg-slate-900 text-slate-300">
+        <div className="container mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-2 md:items-start">
+          <div>
+            <Link to="/" className="inline-flex items-center gap-2.5 text-white">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500">
+                <Cake className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <span className="text-lg font-bold">Sweet &amp; Savory</span>
+            </Link>
+            <p className="mt-4 max-w-sm text-sm leading-6 text-slate-400">
+              Bakery favorites, comforting bites, and a little sweetness for your day.
+            </p>
+          </div>
+
+          <nav aria-label="Footer" className="md:justify-self-end">
+            <h2 className="mb-3 font-semibold text-white">Quick links</h2>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <a href="#about-us" className="transition-colors hover:text-white">
+                  About us
+                </a>
+              </li>
+              <li>
+                <Link to="/products" className="transition-colors hover:text-white">
+                  Browse products
+                </Link>
+              </li>
+              <li>
+                <Link to="/cart" className="transition-colors hover:text-white">
+                  Your cart
+                </Link>
+              </li>
+            </ul>
+          </nav>
+        </div>
+        <div className="border-t border-slate-700">
+          <p className="container mx-auto max-w-6xl px-4 py-5 text-center text-xs text-slate-400 sm:px-6 md:text-left">
+            &copy; {new Date().getFullYear()} Sweet &amp; Savory. All rights reserved.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
