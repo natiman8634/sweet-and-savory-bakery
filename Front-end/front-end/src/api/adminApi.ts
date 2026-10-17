@@ -132,6 +132,9 @@ export interface CreateProductData {
 
 export const getAdminProducts = async (params?: { category?: number; search?: string }) => {
   const queryParams = new URLSearchParams();
+  // The admin list must always include inactive products, otherwise a deactivated
+  // product disappears from the dashboard and can never be re-activated.
+  queryParams.append('includeUnavailable', 'true');
   if (params?.category) queryParams.append('category', String(params.category));
   if (params?.search) queryParams.append('search', params.search);
   const response = await apiClient.get(`/admin/products?${queryParams.toString()}`);
@@ -155,6 +158,20 @@ export const deleteProduct = async (id: string) => {
 
 export const toggleProductAvailability = async (id: string) => {
   const response = await apiClient.patch(`/admin/products/${id}/toggle-availability`);
+  return response.data;
+};
+
+// ============================================================
+// 🗂️ CATEGORIES (two-level: category → subcategory)
+// ============================================================
+export interface CreateCategoryData {
+  category_name: string;
+  // Omit for a top-level category, set it to create a subcategory.
+  parent_id?: number | null;
+}
+
+export const createCategory = async (data: CreateCategoryData) => {
+  const response = await apiClient.post('/admin/categories', data);
   return response.data;
 };
 

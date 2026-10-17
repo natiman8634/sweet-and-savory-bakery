@@ -5,7 +5,7 @@ import { getProducts, getCategories } from '../api/productApi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import {
-  getAdminProducts, createProduct, updateProduct, deleteProduct, toggleProductAvailability,
+  getAdminProducts, createProduct, updateProduct, deleteProduct, toggleProductAvailability, createCategory,
   type CreateProductData,
 } from '../api/adminApi';
 import ProductCard from '../components/product/ProductCard';
@@ -30,7 +30,7 @@ import {
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import {
-  RefreshCw, Search, Plus, Minus, MoreHorizontal, Edit, Trash2,
+  RefreshCw, Search, Plus, MoreHorizontal, Edit, Trash2,
   Package, AlertCircle, CheckCircle, XCircle, Filter, AlertTriangle, Star, ChevronDown, Upload,
 } from 'lucide-react';
 
@@ -76,6 +76,8 @@ function ProductStats({ products }: { products: any[] }) {
 // PRODUCT FORM (Reusable for Add/Edit)
 // ============================================================
 interface ProductFormProps {
+  // Flat list of categories: top-level ones have parent_id = null,
+  // subcategories point at their parent through parent_id.
   categories: any[];
   initialData?: any;
   isEdit?: boolean;
@@ -83,7 +85,21 @@ interface ProductFormProps {
   isLoading: boolean;
 }
 function ProductForm({ categories, initialData, isEdit, onSubmit, isLoading }: ProductFormProps) {
+  const queryClient = useQueryClient();
   const [imageMode, setImageMode] = useState<'url' | 'file'>(initialData?.image_url?.startsWith('data:') ? 'file' : 'url');
+
+  // Two-level category picker: parent category → subcategory
+  const initialCategory = initialData?.category;
+  const [parentCategoryId, setParentCategoryId] = useState<string>(
+    String(initialCategory?.parent_id ?? initialData?.category_id ?? '')
+  );
+  const [subcategoryId, setSubcategoryId] = useState<string>(
+    initialCategory?.parent_id ? String(initialData?.category_id ?? '') : ''
+  );
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [isNewCategoryOpen, setIsNewCategoryOpen] = useState<'category' | 'subcategory' | null>(null);
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+
   const [formData, setFormData] = useState<CreateProductData>({
     name: initialData?.name || '',
     description: initialData?.description || '',
@@ -93,6 +109,62 @@ function ProductForm({ categories, initialData, isEdit, onSubmit, isLoading }: P
     stock_quantity: initialData?.stock_quantity || 0,
     is_available: initialData?.is_available !== undefined ? initialData.is_available : true,
   });
+
+  const topCategories = categories.filter((cat) => !cat.parent_id);
+  const subcategories = parentCategoryId
+    ? categories.filter((cat) => String(cat.parent_id) === parentCategoryId)
+    : [];
+
+  const handleParentChange = (value: string) => {
+    setParentCategoryId(value);
+    setSubcategoryId('');
+  };
+
+  const resetNewCategory = () => {
+    setIsNewCategoryOpen(null);
+    setNewCategoryName('');
+  };
+
+  const handleCreateCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) { alert('Please enter a category name'); return; }
+
+    try {
+      setIsCreatingCategory(true);
+      const isSubcategory = isNewCategoryOpen === 'subcategory';
+
+      if (isSubcategory && !parentCategoryId) {
+        alert('Please select a category first, then add a subcategory to it');
+        setIsCreatingCategory(false);
+        return;
+      }
+
+      const response = await createCategory({
+        category_name: name,
+        parent_id: isSubcategory ? parseInt(parentCategoryId) : undefined,
+      });
+      const created = response?.data;
+
+      if (created?.id) {
+        await queryClient.invalidateQueries({ queryKey: ['categories'] });
+        if (isSubcategory) {
+          setSubcategoryId(String(created.id));
+        } else {
+          setParentCategoryId(String(created.id));
+          setSubcategoryId('');
+        }
+      }
+      resetNewCategory();
+    } catch (err) {
+      const message =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      alert(message || 'Failed to create category');
+    } finally {
+      setIsCreatingCategory(false);
+    }
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -111,29 +183,103 @@ function ProductForm({ categories, initialData, isEdit, onSubmit, isLoading }: P
     if (!formData.name.trim()) { alert('Product name is required'); return; }
     if (formData.price <= 0) { alert('Price must be greater than 0'); return; }
     if (formData.stock_quantity < 0) { alert('Stock quantity cannot be negative'); return; }
-    if (!formData.category_id) { alert('Please select a category'); return; }
-    onSubmit(formData);
+    if (!parentCategoryId) { alert('Please select a category'); return; }
+
+    // When the chosen category has subcategories, a subcategory must be chosen too.
+    let finalCategoryId = parseInt(parentCategoryId);
+    if (subcategories.length > 0) {
+      if (!subcategoryId) { alert('Please select a category / subcategory'); return; }
+      finalCategoryId = parseInt(subcategoryId);
+    }
+    const imageUrl = formData.image_url.trim();
+    if (imageMode === 'url' && imageUrl && !/^(https?:\/\/|\/\/|\/|data:image\/)/i.test(imageUrl)) {
+      alert('Please enter a valid image URL (it must start with http:// or https://)');
+      return;
+    }
+    onSubmit({ ...formData, category_id: finalCategoryId });
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-2"><Label htmlFor="name">Product Name *</Label>
           <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., Sourdough Bread" className="border-gray-200 focus:ring-blue-500" required /></div>
         <div className="space-y-2"><Label htmlFor="category">Category *</Label>
           <div className="relative">
             <select
-              value={formData.category_id}
-              onChange={(e) => setFormData({ ...formData, category_id: parseInt(e.target.value) || 0 })}
+              value={parentCategoryId}
+              onChange={(e) => handleParentChange(e.target.value)}
               className="w-full h-10 px-3 pr-8 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer"
             >
               <option value="">Select category</option>
-              {categories.map((cat: any) => (
+              {topCategories.map((cat) => (
                 <option key={cat.id} value={cat.id}>{cat.category_name}</option>
               ))}
             </select>
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
           </div>
+          {isNewCategoryOpen === 'category' && (
+            <div className="flex gap-2 mt-1">
+              <Input
+                autoFocus
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="New category name"
+                className="h-9 text-sm"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(); } if (e.key === 'Escape') resetNewCategory(); }}
+              />
+              <Button type="button" size="sm" className="h-9 bg-blue-600 hover:bg-blue-700" onClick={handleCreateCategory} disabled={isCreatingCategory}>
+                {isCreatingCategory ? 'Adding...' : 'Add'}
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-9" onClick={resetNewCategory}>Cancel</Button>
+            </div>
+          )}
+        </div>
+        <div className="space-y-2"><Label htmlFor="subcategory">Subcategory {subcategories.length > 0 ? '*' : ''}</Label>
+          <div className="relative">
+            <select
+              value={subcategoryId}
+              onChange={(e) => setSubcategoryId(e.target.value)}
+              disabled={!parentCategoryId || subcategories.length === 0}
+              className="w-full h-10 px-3 pr-8 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer disabled:bg-gray-50 disabled:text-gray-400"
+            >
+              <option value="">
+                {!parentCategoryId
+                  ? 'Select a category first'
+                  : subcategories.length === 0
+                  ? 'No subcategories (uses the category)'
+                  : 'Select subcategory'}
+              </option>
+              {subcategories.map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.category_name}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          </div>
+          <button
+            type="button"
+            onClick={() => { setIsNewCategoryOpen(isNewCategoryOpen === 'subcategory' ? null : 'subcategory'); setNewCategoryName(''); }}
+            disabled={!parentCategoryId}
+            className="text-xs font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 disabled:cursor-not-allowed"
+          >
+            + New subcategory
+          </button>
+          {isNewCategoryOpen === 'subcategory' && (
+            <div className="flex gap-2 mt-1">
+              <Input
+                autoFocus
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="New subcategory name"
+                className="h-9 text-sm"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(); } if (e.key === 'Escape') resetNewCategory(); }}
+              />
+              <Button type="button" size="sm" className="h-9 bg-blue-600 hover:bg-blue-700" onClick={handleCreateCategory} disabled={isCreatingCategory}>
+                {isCreatingCategory ? 'Adding...' : 'Add'}
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-9" onClick={resetNewCategory}>Cancel</Button>
+            </div>
+          )}
         </div>
       </div>
       <div className="space-y-2"><Label htmlFor="description">Description</Label>
@@ -190,90 +336,6 @@ function ProductForm({ categories, initialData, isEdit, onSubmit, isLoading }: P
 }
 
 // ============================================================
-// 📦 INLINE STOCK QUANTITY EDITOR
-// Adjust a product's stock directly from the list (no dialog)
-// ============================================================
-function StockStepper({
-  product,
-  onSave,
-  isSaving,
-}: {
-  product: any;
-  onSave: (quantity: number) => void;
-  isSaving: boolean;
-}) {
-  const current = Number(product.stock_quantity) || 0;
-  const [value, setValue] = useState(String(current));
-  const lastCommittedRef = useRef(current);
-
-  // Keep the input in sync when fresh data arrives from the server
-  useEffect(() => {
-    setValue(String(current));
-    lastCommittedRef.current = current;
-  }, [current]);
-
-  const commit = (raw: string) => {
-    const parsed = parseInt(raw, 10);
-    const next = Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
-    setValue(String(next));
-    // Skip if unchanged, or already in flight / just saved
-    if (next === current || next === lastCommittedRef.current) return;
-    lastCommittedRef.current = next;
-    onSave(next);
-  };
-
-  const step = (delta: number) => {
-    const parsed = parseInt(value, 10);
-    const base = Number.isNaN(parsed) ? current : Math.max(0, parsed);
-    commit(String(Math.max(0, base + delta)));
-  };
-
-  return (
-    <div className="inline-flex items-center gap-1">
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={isSaving || current <= 0}
-        onClick={() => step(-1)}
-        aria-label={`Decrease stock for ${product.name}`}
-        className="h-7 w-7 p-0 border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-      >
-        <Minus className="h-3.5 w-3.5" />
-      </Button>
-      <Input
-        type="number"
-        min="0"
-        inputMode="numeric"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={(e) => commit(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            (e.target as HTMLInputElement).blur();
-          }
-        }}
-        aria-label={`Stock quantity for ${product.name}`}
-        className="h-7 w-14 px-1 text-center text-xs border-slate-200 focus:ring-blue-500"
-      />
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={isSaving}
-        onClick={() => step(1)}
-        aria-label={`Increase stock for ${product.name}`}
-        className="h-7 w-7 p-0 border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </Button>
-      {isSaving && <RefreshCw className="h-3 w-3 animate-spin text-blue-500" />}
-    </div>
-  );
-}
-
-// ============================================================
 // ADMIN PRODUCTS VIEW (used by /admin/products route)
 // ============================================================
 function AdminProductsView() {
@@ -307,18 +369,6 @@ function AdminProductsView() {
   const deleteMutation = useMutation({ mutationFn: (id: string) => deleteProduct(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); setIsDeleteDialogOpen(false); setSelectedProduct(null); }, onError: (err: any) => { alert(err?.response?.data?.message || 'Failed to delete product'); } });
   const toggleAvailabilityMutation = useMutation({ mutationFn: (id: string) => toggleProductAvailability(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); }, onError: (err: any) => { alert(err?.response?.data?.message || 'Failed to toggle availability'); } });
 
-  // 📦 Quick stock adjustment straight from the list
-  const updateStockMutation = useMutation({
-    mutationFn: ({ id, stock_quantity }: { id: string; stock_quantity: number }) => updateProduct(id, { stock_quantity }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); },
-    onError: (err: any) => {
-      alert(err?.response?.data?.message || 'Failed to update stock');
-      // Re-sync with the server value after a failed update
-      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
-    },
-  });
-  const savingStockId = updateStockMutation.isPending ? updateStockMutation.variables?.id : undefined;
-
   useEffect(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
@@ -335,7 +385,7 @@ function AdminProductsView() {
     <div className="space-y-6 bg-[#F8FAFC] min-h-screen p-4 md:p-6 rounded-2xl">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div><h1 className="text-xl sm:text-2xl font-bold text-slate-800">Manage Products</h1><p className="text-xs sm:text-sm text-gray-500">Adjust daily stock quantities and manage your product catalog</p></div>
+        <div><h1 className="text-xl sm:text-2xl font-bold text-slate-800">Manage Products</h1><p className="text-xs sm:text-sm text-gray-500">View stock levels and manage your product catalog</p></div>
         <div className="flex items-center gap-2">
           {isFetching && <span className="flex items-center text-xs text-gray-500"><RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" /> Loading...</span>}
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="border-blue-500 text-blue-600 hover:bg-blue-50 h-9"><RefreshCw className="h-4 w-4 mr-2" /> Refresh</Button>
@@ -411,9 +461,8 @@ function AdminProductsView() {
                         {isAdmin && <DropdownMenuItem onClick={() => handleDelete(product)} className="text-rose-600"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>}
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="outline" className="font-normal text-xs">{product.category?.category_name || 'Uncategorized'}</Badge>
+                  </div>                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="font-normal text-xs">{product.category ? (product.category.parent ? `${product.category.parent.category_name} / ${product.category.category_name}` : product.category.category_name) : 'Uncategorized'}</Badge>
                     <Badge className={`${badgeClass} border-0 text-xs`}>{product.is_available ? 'Active' : 'Inactive'}</Badge>
                   </div>
                   <div className="flex items-center justify-between gap-2">
@@ -422,11 +471,7 @@ function AdminProductsView() {
                       {product.stock_quantity === 0 && <span className="ml-1 font-semibold text-rose-600">(Out)</span>}
                       {product.stock_quantity > 0 && product.stock_quantity <= 5 && <span className="ml-1 font-semibold text-amber-600">(Low)</span>}
                     </span>
-                    <StockStepper
-                      product={product}
-                      isSaving={savingStockId === product.id}
-                      onSave={(quantity) => updateStockMutation.mutate({ id: product.id, stock_quantity: quantity })}
-                    />
+                    <span className="text-sm font-semibold text-slate-800">{product.stock_quantity}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-slate-800">${Number(product.price).toFixed(2)}</span>
@@ -458,15 +503,11 @@ function AdminProductsView() {
                           <div className="h-10 w-10 rounded-lg bg-gray-100 overflow-hidden shrink-0">{product.image_url ? <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center text-gray-400 text-lg">🍞</div>}</div>
                           <div><p className="font-medium text-slate-800">{product.name}</p><p className="text-xs text-gray-500 truncate max-w-xs">{product.description || 'No description'}</p></div>
                         </div></TableCell>
-                        <TableCell><Badge variant="outline" className="font-normal text-xs">{product.category?.category_name || 'Uncategorized'}</Badge></TableCell>
+                        <TableCell><Badge variant="outline" className="font-normal text-xs">{product.category ? (product.category.parent ? `${product.category.parent.category_name} / ${product.category.category_name}` : product.category.category_name) : 'Uncategorized'}</Badge></TableCell>
                         <TableCell className="font-semibold text-slate-800">${Number(product.price).toFixed(2)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <StockStepper
-                              product={product}
-                              isSaving={savingStockId === product.id}
-                              onSave={(quantity) => updateStockMutation.mutate({ id: product.id, stock_quantity: quantity })}
-                            />
+                            <span className="text-sm font-semibold text-slate-800">{product.stock_quantity}</span>
                             {product.stock_quantity === 0 ? (
                               <span className="text-[10px] font-semibold text-rose-600">Out</span>
                             ) : product.stock_quantity <= 5 ? (
@@ -538,6 +579,46 @@ function AdminProductsView() {
 }
 
 // ============================================================
+// OCCASION CHIPS (shown for cake, bread & pastry categories)
+// Styled like the status filter chips on the Orders page
+// ============================================================
+const OCCASIONS = [
+  { value: 'all', label: 'All', color: 'bg-slate-100 text-slate-700 border-slate-200', activeColor: 'bg-slate-800 text-white border-slate-800' },
+  { value: 'birthday', label: '🎈 Birthday', color: 'bg-rose-50 text-rose-700 border-rose-200', activeColor: 'bg-rose-500 text-white border-rose-500' },
+  { value: 'wedding', label: '💍 For Wedding', color: 'bg-purple-50 text-purple-700 border-purple-200', activeColor: 'bg-purple-500 text-white border-purple-500' },
+  { value: 'holiday', label: '🎄 Holiday', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', activeColor: 'bg-emerald-500 text-white border-emerald-500' },
+  { value: 'other', label: '✨ Other', color: 'bg-amber-50 text-amber-700 border-amber-200', activeColor: 'bg-amber-500 text-white border-amber-500' },
+];
+
+const OCCASION_KEYWORDS: Record<string, string[]> = {
+  birthday: ['birthday'],
+  wedding: ['wedding', 'bridal', 'engagement', 'anniversary'],
+  holiday: ['holiday', 'christmas', 'easter', 'halloween', 'new year'],
+};
+
+// Occasion chips appear for cake, bread AND pastry categories
+const isOccasionCategoryName = (name: string) => {
+  const n = (name || '').toLowerCase();
+  return n.includes('cake') || n.includes('bread') || n.includes('pastr');
+};
+
+const occasionText = (product: any) =>
+  `${product.name || ''} ${product.description || ''}`.toLowerCase();
+
+// 'other' = items that match none of the named occasions
+const matchesOccasion = (product: any, occasion: string) => {
+  const text = occasionText(product);
+  if (occasion === 'other') {
+    return !Object.values(OCCASION_KEYWORDS).some((keywords) =>
+      keywords.some((keyword) => text.includes(keyword))
+    );
+  }
+  return (OCCASION_KEYWORDS[occasion] || []).some((keyword) =>
+    text.includes(keyword)
+  );
+};
+
+// ============================================================
 // USER PRODUCTS VIEW (used by /products route - always public)
 // ============================================================
 function UserProductsView() {
@@ -547,6 +628,7 @@ function UserProductsView() {
 
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+  const [selectedOccasion, setSelectedOccasion] = useState('all');
 
   const { data: productsData, isLoading, isError, error, refetch } = useQuery({ queryKey: ['products'], queryFn: getProducts });
   const { data: categoriesData } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
@@ -555,18 +637,52 @@ function UserProductsView() {
   const products = Array.isArray(productsData) ? productsData : [];
   const categories = categoriesData || [];
 
-  // Filter products by search and category
+  // Occasion chips appear for cake, bread and pastry categories
+  const selectedCategoryName =
+    categories.find((cat: any) => String(cat.id) === selectedCategory)?.category_name || '';
+  const showOccasionChips = isOccasionCategoryName(selectedCategoryName);
+
+  // Selecting a category must also show the products of its subcategories
+  const selectedCategoryIds = useMemo(() => {
+    if (!selectedCategory) return null;
+    const ids = new Set<string>([selectedCategory]);
+    categories.forEach((cat: any) => {
+      if (String(cat.parent_id) === selectedCategory) ids.add(String(cat.id));
+    });
+    return ids;
+  }, [selectedCategory, categories]);
+
+  // Per-occasion counts over the products in the selected category (Orders-page style badges)
+  const categoryProducts = useMemo(
+    () => products.filter((product) => selectedCategoryIds?.has(String(product.category_id)) ?? true),
+    [products, selectedCategoryIds]
+  );
+  const occasionCount = (value: string) => {
+    if (value === 'all') return categoryProducts.length;
+    return categoryProducts.filter((product) => matchesOccasion(product, value)).length;
+  };
+
+  // Filter products by search, category and occasion
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
+    const bySearchAndCategory = products.filter((product) => {
       const matchesSearch =
         !searchQuery ||
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesCategory =
-        !selectedCategory || String(product.category_id) === selectedCategory;
+        selectedCategoryIds?.has(String(product.category_id)) ?? true;
       return matchesSearch && matchesCategory;
     });
-  }, [products, searchQuery, selectedCategory]);
+
+    if (!showOccasionChips || selectedOccasion === 'all') return bySearchAndCategory;
+
+    const occasionMatches = bySearchAndCategory.filter((product) =>
+      matchesOccasion(product, selectedOccasion)
+    );
+
+    // Graceful fallback: if nothing mentions the occasion, keep showing all items
+    return occasionMatches.length > 0 ? occasionMatches : bySearchAndCategory;
+  }, [products, searchQuery, selectedCategoryIds, selectedOccasion, showOccasionChips]);
 
   if (isLoading) {
     return (<div className="container mx-auto px-4 py-8"><h1 className="text-3xl font-bold mb-6 text-amber-800"> Our Fresh Baked Goods</h1><div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">{[...Array(8)].map((_, i) => (<div key={i} className="h-80 bg-gray-200 rounded-xl animate-pulse"></div>))}</div></div>);
@@ -612,6 +728,7 @@ function UserProductsView() {
             onChange={(e) => {
               const val = e.target.value;
               setSelectedCategory(val);
+              setSelectedOccasion('all');
               const params = new URLSearchParams(searchParams);
               if (val) params.set('category', val);
               else params.delete('category');
@@ -634,6 +751,7 @@ function UserProductsView() {
             onClick={() => {
               setSearchQuery('');
               setSelectedCategory('');
+              setSelectedOccasion('all');
               setSearchParams({}, { replace: true });
             }}
           >
@@ -641,6 +759,44 @@ function UserProductsView() {
           </Button>
         )}
       </div>
+
+      {/* Occasion Chips (Orders-page style) — for cake, bread & pastry categories */}
+      {showOccasionChips && (
+        <div className="flex gap-2 overflow-x-auto pb-3 mb-5 -mx-1 px-1 scrollbar-hide">
+          {OCCASIONS.map((occasion) => {
+            const count = occasionCount(occasion.value);
+            const isActive = selectedOccasion === occasion.value;
+            return (
+              <button
+                key={occasion.value}
+                type="button"
+                onClick={() => setSelectedOccasion(occasion.value)}
+                className={`
+                  flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                  border transition-all duration-200 whitespace-nowrap shrink-0 cursor-pointer
+                  ${
+                    isActive
+                      ? occasion.activeColor + ' shadow-sm'
+                      : occasion.color + ' hover:shadow-sm'
+                  }
+                `}
+              >
+                {occasion.value === 'all' && selectedCategoryName
+                  ? `All ${selectedCategoryName}`
+                  : occasion.label}
+                <span
+                  className={`
+                    inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[10px] font-bold px-1
+                    ${isActive ? 'bg-white/25 text-white' : 'bg-black/5 text-inherit'}
+                  `}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Products Grid */}
       {filteredProducts.length === 0 ? (

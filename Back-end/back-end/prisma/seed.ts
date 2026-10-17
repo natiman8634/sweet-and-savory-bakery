@@ -78,6 +78,33 @@ async function main() {
     });
   }
 
+  // Two-level taxonomy: subcategories belong to a top-level category
+  const subCategoryData = [
+    { category_name: 'Artisan Breads', parent_name: 'Breads' },
+    { category_name: 'Sweet Bread', parent_name: 'Breads' },
+    { category_name: 'Savory Pastries', parent_name: 'Pastries' },
+    { category_name: 'Sweet Pastries', parent_name: 'Pastries' },
+    { category_name: 'Birthday Cakes', parent_name: 'Cakes' },
+    { category_name: 'Wedding Cakes', parent_name: 'Cakes' },
+  ];
+
+  for (const subCategory of subCategoryData) {
+    const parent = await prisma.categories.findUnique({
+      where: { category_name: subCategory.parent_name }
+    });
+
+    if (!parent) continue;
+
+    await prisma.categories.upsert({
+      where: { category_name: subCategory.category_name },
+      update: { parent_id: parent.id },
+      create: {
+        category_name: subCategory.category_name,
+        parent_id: parent.id
+      }
+    });
+  }
+
   const breadCategory = await prisma.categories.findUnique({
     where: { category_name: 'Breads' }
   });

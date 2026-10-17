@@ -181,7 +181,11 @@ export default function Home() {
             </div>
           ) : (
             <div className="flex gap-4 sm:gap-6 justify-center flex-wrap px-4">
-              {categories.slice(0, 6).map((category: any) => {
+              {/* Main categories only — subcategories are not shown here */}
+              {categories
+                .filter((category) => !category.parent_id)
+                .slice(0, 6)
+                .map((category: any) => {
                 const bgColors: Record<string, string> = {
                   Breads: '#fde68a',
                   Pastries: '#fecdd3',

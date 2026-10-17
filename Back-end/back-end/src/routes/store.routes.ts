@@ -11,6 +11,7 @@ import {
   bulkUpdateProducts,
   getLowStockProducts,
   createProduct,
+  createCategory,
   deleteProduct,
   clearCache,
   getCacheStats,
@@ -130,6 +131,8 @@ router.delete('/admin/users/:id', adminAuth, deleteUser);
 // Product Management — catalog reads and stock updates are open to Staff too
 router.get('/admin/products', staffAuth, getAllProductsAdmin);
 router.post('/admin/products', adminAuth, createProduct);
+// Category management (top-level categories and subcategories)
+router.post('/admin/categories', adminAuth, createCategory);
 router.patch('/admin/products/:id', staffAuth, updateProduct);
 router.delete('/admin/products/:id', adminAuth, deleteProduct);
 router.patch('/admin/products/:id/toggle-availability', staffAuth, toggleProductAvailability);

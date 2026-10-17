@@ -228,15 +228,23 @@ export default function AdminUsers() {
 
   const handleAddStaff = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!staffForm.full_name.trim()) return alert('Full name is required');
-    if (!staffForm.email.trim()) return alert('Email is required');
+    const fullName = staffForm.full_name.trim();
+    const email = staffForm.email.trim();
+    const phone = staffForm.phone.trim();
+    if (!fullName) return alert('Full name is required');
+    if (/\d/.test(fullName)) return alert('Full name cannot contain numbers');
+    if (!email) return alert('Email is required');
+    if (!/^\S+@\S+\.\S{2,}$/.test(email)) return alert('Please enter a valid email address');
+    if (phone && !/^\+?\d[\d\s-]{6,}$/.test(phone)) {
+      return alert('Please enter a valid phone number (digits, e.g. +251 911 123 456)');
+    }
     if (staffForm.password.length < 8) {
       return alert('Password must be at least 8 characters long');
     }
     createStaffMutation.mutate({
-      full_name: staffForm.full_name.trim(),
-      email: staffForm.email.trim(),
-      phone: staffForm.phone.trim() || undefined,
+      full_name: fullName,
+      email,
+      phone: phone || undefined,
       password: staffForm.password,
     });
   };
@@ -578,6 +586,7 @@ export default function AdminUsers() {
               <Label htmlFor="staff_phone">Phone</Label>
               <Input
                 id="staff_phone"
+                type="tel"
                 value={staffForm.phone}
                 onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })}
                 placeholder="Optional"
