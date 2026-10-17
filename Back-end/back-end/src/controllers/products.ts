@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 import NodeCache from 'node-cache';
 import { getProductRatingStats } from './reviews.js';
+import { flushRouteCache } from '../middleware/cache.js';
 
 // ============================================================
 // 🟢 TASK 3: PERFORMANCE OPTIMIZATION - Caching
@@ -102,7 +103,12 @@ export const getProducts = async (req: Request, res: Response) => {
     };
 
     if (category) {
-      where.category_id = category;
+      // Filtering by a parent category must also match its subcategories
+      const childCategories = await prisma.categories.findMany({
+        where: { parent_id: category },
+        select: { id: true },
+      });
+      where.category_id = { in: [category, ...childCategories.map((c) => c.id)] };
     }
 
     if (search && search.trim()) {
@@ -129,6 +135,13 @@ export const getProducts = async (req: Request, res: Response) => {
           select: {
             id: true,
             category_name: true,
+            parent_id: true,
+            parent: {
+              select: {
+                id: true,
+                category_name: true,
+              },
+            },
           },
         },
       },
@@ -218,6 +231,7 @@ export const getCategories = async (req: Request, res: Response) => {
     const formattedCategories = categories.map((category) => ({
       id: category.id,
       category_name: category.category_name,
+      parent_id: category.parent_id,
       product_count: category.products.length,
     }));
 
@@ -241,6 +255,100 @@ export const getCategories = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch categories',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+};
+
+/**
+ * Create a category (Admin only)
+ * Two-level taxonomy: omit `parent_id` to create a top-level category,
+ * send it to create a subcategory under an existing category.
+ */
+export const createCategory = async (req: AuthRequest, res: Response) => {
+  try {
+    const { category_name, parent_id } = req.body;
+    const name = typeof category_name === 'string' ? category_name.trim() : '';
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category name is required',
+      });
+    }
+
+    if (name.length > 60) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category name must be 60 characters or fewer',
+      });
+    }
+
+    let parentId: number | null = null;
+
+    if (parent_id !== undefined && parent_id !== null && parent_id !== '') {
+      const parsedParentId = Number(parent_id);
+
+      if (isNaN(parsedParentId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid parent category',
+        });
+      }
+
+      const parent = await prisma.categories.findUnique({
+        where: { id: parsedParentId },
+      });
+
+      if (!parent) {
+        return res.status(400).json({
+          success: false,
+          message: 'Parent category not found',
+        });
+      }
+
+      if (parent.parent_id !== null) {
+        return res.status(400).json({
+          success: false,
+          message: 'Categories can only be two levels deep',
+        });
+      }
+
+      parentId = parsedParentId;
+    }
+
+    // category_name is unique in the database
+    const duplicate = await prisma.categories.findFirst({
+      where: { category_name: { equals: name, mode: 'insensitive' } },
+    });
+
+    if (duplicate) {
+      return res.status(400).json({
+        success: false,
+        message: 'A category with this name already exists',
+      });
+    }
+
+    const category = await prisma.categories.create({
+      data: {
+        category_name: name,
+        parent_id: parentId,
+      },
+    });
+
+    // Clear product + category caches so the new option shows up immediately
+    clearProductCache();
+
+    res.status(201).json({
+      success: true,
+      message: 'Category created successfully',
+      data: category,
+    });
+  } catch (error) {
+    console.error('Error creating category:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create category',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
@@ -272,6 +380,13 @@ export const getProductById = async (req: Request, res: Response) => {
           select: {
             id: true,
             category_name: true,
+            parent_id: true,
+            parent: {
+              select: {
+                id: true,
+                category_name: true,
+              },
+            },
           },
         },
         orderItems: {
@@ -343,7 +458,12 @@ export const getAllProductsAdmin = async (req: AuthRequest, res: Response) => {
     }
 
     if (category) {
-      where.category_id = category;
+      // Filtering by a parent category must also match its subcategories
+      const childCategories = await prisma.categories.findMany({
+        where: { parent_id: category },
+        select: { id: true },
+      });
+      where.category_id = { in: [category, ...childCategories.map((c) => c.id)] };
     }
 
     if (search && search.trim()) {
@@ -370,6 +490,13 @@ export const getAllProductsAdmin = async (req: AuthRequest, res: Response) => {
           select: {
             id: true,
             category_name: true,
+            parent_id: true,
+            parent: {
+              select: {
+                id: true,
+                category_name: true,
+              },
+            },
           },
         },
         orderItems: {
@@ -1013,6 +1140,10 @@ const clearProductCache = () => {
   } else {
     console.log('ℹ️ No cache entries to clear');
   }
+
+  // Also bust the URL-keyed cache used by the /products and /categories routes,
+  // otherwise changes stay invisible for up to 5 minutes.
+  flushRouteCache();
 };
 
 /**

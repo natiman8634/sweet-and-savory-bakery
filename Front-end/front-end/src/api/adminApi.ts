@@ -162,6 +162,20 @@ export const toggleProductAvailability = async (id: string) => {
 };
 
 // ============================================================
+// 🗂️ CATEGORIES (two-level: category → subcategory)
+// ============================================================
+export interface CreateCategoryData {
+  category_name: string;
+  // Omit for a top-level category, set it to create a subcategory.
+  parent_id?: number | null;
+}
+
+export const createCategory = async (data: CreateCategoryData) => {
+  const response = await apiClient.post('/admin/categories', data);
+  return response.data;
+};
+
+// ============================================================
 // 👤 USERS
 // ============================================================
 export const getAdminUsers = async (params?: { role?: string; page?: number; limit?: number }) => {

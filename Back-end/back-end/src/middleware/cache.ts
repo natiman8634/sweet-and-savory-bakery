@@ -4,6 +4,11 @@ import NodeCache from 'node-cache';
 // Initialize cache with a standard TTL
 const cache = new NodeCache({ stdTTL: 300 }); // 300 seconds (5 minutes)
 
+// Bust the URL-keyed route cache (e.g. after a product/category change)
+export const flushRouteCache = () => {
+  cache.flushAll();
+};
+
 export const cacheMiddleware = (duration: number) => {
   return (req: Request, res: Response, next: NextFunction) => {
     // Generate a unique key based on the URL
