@@ -404,15 +404,20 @@ export default function Home() {
 
       {/* ABOUT US SECTION */}
       <section id="about-us" className="scroll-mt-20 bg-white py-16 sm:py-20">
-        <div className="container mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:items-center">
-          <div>
-            <p className="mb-3 text-lg font-bold uppercase tracking-[0.2em] text-red-500">
-             <h1>About Sweet Savory</h1> 
-            </p>
-            <h3 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-2xl">
+        <div className="container mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-red-500 sm:text-4xl">About Us</h2>
+            <div className="mt-2 flex items-center justify-center gap-1.5">
+              <div className="h-0.5 w-8 rounded-full bg-red-300" />
+              <div className="h-2 w-2 rounded-full bg-red-400" />
+              <div className="h-2 w-2 rounded-full bg-red-400" />
+              <div className="h-2 w-2 rounded-full bg-red-400" />
+              <div className="h-0.5 w-8 rounded-full bg-red-300" />
+            </div>
+            <h3 className="mt-6 text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
               Baked with care, shared with joy.
             </h3>
-            <p className="mt-5 max-w-xl leading-7 text-slate-600">
+            <p className="mx-auto mt-4 max-w-3xl leading-7 text-slate-600">
               Sweet &amp; Savory brings bakery favorites and comforting bites together in one
               place. Whether you are treating yourself or sharing something delicious, we make
               it easy to find a new favorite and have it delivered to your door.
@@ -424,21 +429,21 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
             <div className="rounded-2xl bg-rose-50 p-5">
-              <h3 className="font-semibold text-slate-800">A little something for everyone</h3>
+              <h3 className="font-bold text-slate-800">A little something for everyone</h3>
               <p className="mt-1 text-sm leading-6 text-slate-600">
                 Browse breads, pastries, cakes, and more.
               </p>
             </div>
             <div className="rounded-2xl bg-amber-50 p-5">
-              <h3 className="font-semibold text-slate-800">Made for sharing</h3>
+              <h3 className="font-bold text-slate-800">Made for sharing</h3>
               <p className="mt-1 text-sm leading-6 text-slate-600">
                 Find a treat for a quiet moment or a table full of friends.
               </p>
             </div>
             <div className="rounded-2xl bg-orange-50 p-5">
-              <h3 className="font-semibold text-slate-800">From our menu to your door</h3>
+              <h3 className="font-bold text-slate-800">From our menu to your door</h3>
               <p className="mt-1 text-sm leading-6 text-slate-600">
                 Order online and enjoy your favorites at home.
               </p>

@@ -5316,3 +5316,15 @@
 {"level":"info","message":"OPTIONS /api/categories 204 - 3ms","timestamp":"2026-10-17T08:57:40.185Z"}
 {"level":"info","message":"GET /api/categories 200 - 1051ms","timestamp":"2026-10-17T08:57:41.238Z"}
 {"level":"info","message":"GET /api/products 200 - 3237ms","timestamp":"2026-10-17T08:57:43.260Z"}
+{"level":"info","message":"GET /api/categories 200 - 1121ms","timestamp":"2026-10-17T09:17:14.898Z"}
+{"level":"info","message":"GET /api/categories 200 - 4ms","timestamp":"2026-10-17T09:17:15.917Z"}
+{"level":"info","message":"GET /api/products 200 - 3214ms","timestamp":"2026-10-17T09:17:16.672Z"}
+{"level":"info","message":"GET /api/products 200 - 7ms","timestamp":"2026-10-17T09:17:17.659Z"}
+{"level":"info","message":"OPTIONS /api/products 204 - 12ms","timestamp":"2026-10-17T09:18:02.430Z"}
+{"level":"info","message":"OPTIONS /api/categories 204 - 7ms","timestamp":"2026-10-17T09:18:02.445Z"}
+{"level":"info","message":"OPTIONS /api/products 204 - 2ms","timestamp":"2026-10-17T09:18:03.495Z"}
+{"level":"info","message":"OPTIONS /api/categories 204 - 1ms","timestamp":"2026-10-17T09:18:03.500Z"}
+{"level":"info","message":"OPTIONS /api/products 204 - 31ms","timestamp":"2026-10-17T09:18:47.060Z"}
+{"level":"info","message":"OPTIONS /api/categories 204 - 10ms","timestamp":"2026-10-17T09:18:47.564Z"}
+{"level":"info","message":"OPTIONS /api/products 204 - 3ms","timestamp":"2026-10-17T09:18:48.113Z"}
+{"level":"info","message":"OPTIONS /api/categories 204 - 1ms","timestamp":"2026-10-17T09:18:48.581Z"}
