@@ -16,7 +16,6 @@ import {
   MapPin,
   Calendar,
   ClipboardList,
-  CircleCheckBig,
   PackageCheck,
   Store,
   Wallet,
@@ -190,7 +189,6 @@ function OrderTrackingTimeline({
             const isCompleted = !isCancelled && index < currentStepIndex;
             const isActive =
               !isCancelled && index === currentStepIndex;
-            const isUpcoming = isCancelled || index > currentStepIndex;
             const isLast = index === steps.length - 1;
 
             const StepIcon = step.icon;

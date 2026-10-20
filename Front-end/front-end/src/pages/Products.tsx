@@ -566,12 +566,12 @@ function AdminProductsView() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Product</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <strong>{selectedProduct?.name}</strong>?
-              {selectedProduct?.orderItems?.length > 0 && <span className="block mt-2 text-amber-600"><AlertTriangle className="h-4 w-4 inline mr-1" /> This product has {selectedProduct.orderItems.length} associated orders. It will be deactivated instead of permanently deleted.</span>}
+              Are you sure you want to permanently delete <strong>{selectedProduct?.name}</strong>? It will be removed from the catalog for good.
+              {selectedProduct?.orderItems?.length > 0 && <span className="block mt-2 text-amber-600"><AlertTriangle className="h-4 w-4 inline mr-1" /> This product appears in {selectedProduct.orderItems.length} past order(s). Those orders are kept — only the product link is removed from them.</span>}
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteMutation.mutate(selectedProduct?.id)} className="bg-rose-600 hover:bg-rose-700">{deleteMutation.isPending ? 'Deleting...' : 'Delete'}</AlertDialogAction></AlertDialogFooter>
+          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteMutation.mutate(selectedProduct?.id)} className="bg-rose-600 hover:bg-rose-700">{deleteMutation.isPending ? 'Deleting...' : 'Delete Permanently'}</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

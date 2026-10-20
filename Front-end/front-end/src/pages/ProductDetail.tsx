@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { getProductById } from '../api/productApi';
 import { getProductReviews, type Review, type ReviewStats } from '../api/reviewApi';
 import { useCart } from '../context/CartContext';
-import { useAuth } from '../context/AuthContext';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -24,7 +23,6 @@ import { useState } from 'react';
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const { addItem } = useCart();
-  const { user } = useAuth();
   const [quantity, setQuantity] = useState(1);
 
   const {

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { getAdminOrders, updateOrderStatus } from '../api/adminApi';
 import type { AdminOrderFilters } from '../api/adminApi';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import {
@@ -29,7 +29,6 @@ import {
   ShoppingBag,
   Search,
   Calendar,
-  Eye,
   Store,
   Wallet,
   CookingPot,
@@ -38,8 +37,6 @@ import {
   Home,
   Bike,
   MapPinned,
-  ClipboardList,
-  PackageCheck,
   Truck,
 } from 'lucide-react';
 
@@ -165,7 +162,6 @@ function HorizontalTimeline({
         {steps.map((step, i) => {
           const isCompleted = !isCancelled && i < currentIdx;
           const isActive = !isCancelled && i === currentIdx;
-          const isUpcoming = isCancelled || i > currentIdx;
           const StepIcon = step.icon;
 
           let circleClasses = '';
