@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
-import { getAdminOrders, updateOrderStatus } from '../api/adminApi';
+import { getAdminOrders } from '../api/adminApi';
 import type { AdminOrderFilters } from '../api/adminApi';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { Input } from '../components/ui/input';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Clock,
   Package,
@@ -26,6 +26,7 @@ import {
   ChevronRight,
   ChevronRight as ArrowRight,
   Filter,
+  Eye,
   ShoppingBag,
   Search,
   Calendar,
@@ -231,7 +232,8 @@ const USER_STATUS_FILTERS = [
 // ============================================================
 // ADMIN-ONLY CONSTANTS
 // ============================================================
-const STATUS_ALL = '__all__';
+// Values must match the labels: Base UI's SelectValue renders the raw value.
+const STATUS_ALL = 'All Statuses';
 const statusOptions = [
   { value: STATUS_ALL, label: 'All Statuses' },
   { value: 'Pending', label: 'Pending' },
@@ -241,6 +243,63 @@ const statusOptions = [
   { value: 'Completed', label: 'Completed' },
   { value: 'Cancelled', label: 'Cancelled' },
 ];
+
+// MONTH / YEAR FILTER DROPDOWNS (replaces the free-form order date pickers)
+const MONTH_ALL = 'All Months';
+const YEAR_ALL = 'All Years';
+
+const monthOptions = [
+  { value: MONTH_ALL, label: 'All Months' },
+  { value: 'January', label: 'January' },
+  { value: 'February', label: 'February' },
+  { value: 'March', label: 'March' },
+  { value: 'April', label: 'April' },
+  { value: 'May', label: 'May' },
+  { value: 'June', label: 'June' },
+  { value: 'July', label: 'July' },
+  { value: 'August', label: 'August' },
+  { value: 'September', label: 'September' },
+  { value: 'October', label: 'October' },
+  { value: 'November', label: 'November' },
+  { value: 'December', label: 'December' },
+];
+
+// "All Months" sits at index 0, so shifting by one gives -1 (all) or 0-11.
+const monthIndex = (value: string) =>
+  monthOptions.findIndex((opt) => opt.value === value) - 1;
+
+const currentYear = new Date().getFullYear();
+const yearOptions = [
+  { value: YEAR_ALL, label: 'All Years' },
+  ...Array.from({ length: 6 }, (_, i) => {
+    const year = String(currentYear - i);
+    return { value: year, label: year };
+  }),
+];
+
+const formatLocalDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// Turns the two dropdowns into an inclusive YYYY-MM-DD range for the API:
+//  • both "All"  → no date filter
+//  • year only   → whole year
+//  • month chosen→ that month (defaults to the current year)
+const buildMonthYearRange = (month: string, year: string): { fromDate?: string; toDate?: string } => {
+  const monthIdx = monthIndex(month);
+  const hasMonth = monthIdx >= 0;
+  const hasYear = year !== YEAR_ALL;
+  if (!hasMonth && !hasYear) return { fromDate: undefined, toDate: undefined };
+
+  const rangeYear = hasYear ? Number(year) : currentYear;
+  const startMonth = hasMonth ? monthIdx : 0;
+  const endMonth = hasMonth ? monthIdx : 11;
+
+  return {
+    fromDate: formatLocalDate(new Date(rangeYear, startMonth, 1)),
+    // Day 0 of the following month = last day of endMonth
+    toDate: formatLocalDate(new Date(rangeYear, endMonth + 1, 0)),
+  };
+};
 
 const statusBadgeStyles: Record<string, string> = {
   Completed: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -298,13 +357,15 @@ const buildOrderStats = (meta: any) => {
 // ============================================================
 // ADMIN ORDER CARD (Mobile)
 // ============================================================
-function AdminOrderCard({ order, onStatusChange }: { order: any; onStatusChange: (orderId: string, status: string) => void; }) {
+function AdminOrderCard({ order }: { order: any }) {
+  const navigate = useNavigate();
   const statusName = order.status?.status_name || 'Unknown';
   const badgeClass = statusBadgeStyles[statusName] || 'bg-gray-100 text-gray-800 border-gray-200';
   const paymentStatus = order.payment?.payment_status || 'Unpaid';
   const paymentMethod = order.payment?.payment_method || 'N/A';
+  const openDetail = () => navigate(`/orders/${order.id}`);
   return (
-    <Card className="border border-slate-200 shadow-sm">
+    <Card className="border border-slate-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all cursor-pointer" onClick={openDetail}>
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <span className="font-mono text-xs text-blue-600 font-medium">#{order.id.slice(0, 8)}</span>
@@ -326,15 +387,9 @@ function AdminOrderCard({ order, onStatusChange }: { order: any; onStatusChange:
           </div>
         </div>
         <div className="pt-2 border-t border-slate-100">
-          <Select value={statusName} onValueChange={(value) => { if (value && value !== statusName) onStatusChange(order.id, value); }}>
-            <SelectTrigger className="w-full h-9 text-xs border-slate-200 focus:ring-blue-500"><SelectValue placeholder="Update Status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Unpaid">Unpaid</SelectItem><SelectItem value="Pending">Pending</SelectItem>
-              <SelectItem value="Preparing">Preparing</SelectItem><SelectItem value="Ready for Pickup">Ready for Pickup</SelectItem>
-              <SelectItem value="Out for Delivery">Out for Delivery</SelectItem><SelectItem value="Completed">Completed</SelectItem>
-              <SelectItem value="Cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
+          <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openDetail(); }} className="w-full border-blue-500 text-blue-600 hover:bg-blue-50 h-9">
+            <Eye className="h-4 w-4 mr-2" /> View Order
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -345,34 +400,38 @@ function AdminOrderCard({ order, onStatusChange }: { order: any; onStatusChange:
 // ADMIN ORDERS VIEW
 // ============================================================
 function AdminOrdersView() {
-  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [filters, setFilters] = useState<AdminOrderFilters>({ limit: 20, offset: 0 });
-  const [statusError, setStatusError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState('');
-  const dateDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [pendingFromDate, setPendingFromDate] = useState('');
-  const [pendingToDate, setPendingToDate] = useState('');
+  const [month, setMonth] = useState<string>(MONTH_ALL);
+  const [year, setYear] = useState<string>(YEAR_ALL);
 
+  // Push the selected month/year into the API filters (resets to page 1).
   useEffect(() => {
-    if (dateDebounceTimerRef.current) clearTimeout(dateDebounceTimerRef.current);
-    dateDebounceTimerRef.current = setTimeout(() => {
-      setFilters((prev) => { const f = pendingFromDate || undefined; const t = pendingToDate || undefined; if (prev.fromDate === f && prev.toDate === t) return prev; return { ...prev, fromDate: f, toDate: t, offset: 0 }; });
-    }, 500);
-    return () => { if (dateDebounceTimerRef.current) clearTimeout(dateDebounceTimerRef.current); };
-  }, [pendingFromDate, pendingToDate]);
+    const { fromDate, toDate } = buildMonthYearRange(month, year);
+    setFilters((prev) => {
+      if (prev.fromDate === fromDate && prev.toDate === toDate) return prev;
+      return { ...prev, fromDate, toDate, offset: 0 };
+    });
+  }, [month, year]);
 
   const { data, isLoading, isFetching, refetch } = useQuery({ queryKey: ['admin-orders', filters], queryFn: () => getAdminOrders(filters) });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: ({ orderId, status }: { orderId: string; status: string }) => updateOrderStatus(orderId, status),
-    onSuccess: () => { setStatusError(null); queryClient.invalidateQueries({ queryKey: ['admin-orders'] }); queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] }); },
-    onError: (err: any) => { setStatusError(err?.response?.data?.message || 'Failed to update order status'); },
-  });
-
-  const handleStatusChange = (orderId: string, status: string) => { updateStatusMutation.mutate({ orderId, status }); };
   const handleFilterChange = (key: keyof AdminOrderFilters, value: string) => { setFilters((prev) => ({ ...prev, [key]: value, offset: 0 })); };
   const handlePageChange = (newOffset: number) => { setFilters((prev) => ({ ...prev, offset: newOffset })); };
-  const handleClearFilters = () => { setSearchInput(''); setPendingFromDate(''); setPendingToDate(''); setFilters({ limit: 20, offset: 0 }); };
+  const handleMonthChange = (value: string | null) => {
+    const next = value ?? MONTH_ALL;
+    setMonth(next);
+    // A month only makes sense with a year, so default it to the current one.
+    if (next !== MONTH_ALL && year === YEAR_ALL) setYear(String(currentYear));
+  };
+  const handleYearChange = (value: string | null) => {
+    const next = value ?? YEAR_ALL;
+    setYear(next);
+    // Clearing the year clears the month too, otherwise the pair is ambiguous.
+    if (next === YEAR_ALL) setMonth(MONTH_ALL);
+  };
+  const handleClearFilters = () => { setSearchInput(''); setMonth(MONTH_ALL); setYear(YEAR_ALL); setFilters({ limit: 20, offset: 0 }); };
 
   const allOrders = data?.data || [];
   const trimmedSearch = searchInput.trim().toLowerCase();
@@ -433,9 +492,14 @@ function AdminOrdersView() {
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Calendar className="h-4 w-4 text-gray-400 shrink-0" />
                 <div className="flex items-center gap-2 flex-1 sm:flex-initial">
-                  <Input type="date" className="flex-1 sm:w-36 h-9 border-slate-200 focus:ring-blue-500" value={pendingFromDate} onChange={(e) => setPendingFromDate(e.target.value)} />
-                  <span className="text-xs text-gray-400 shrink-0">to</span>
-                  <Input type="date" className="flex-1 sm:w-36 h-9 border-slate-200 focus:ring-blue-500" value={pendingToDate} onChange={(e) => setPendingToDate(e.target.value)} />
+                  <Select value={month} onValueChange={handleMonthChange}>
+                    <SelectTrigger className="flex-1 sm:w-36 h-9 border-slate-200 focus:ring-blue-500"><SelectValue placeholder="Month" /></SelectTrigger>
+                    <SelectContent>{monthOptions.map((opt) => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}</SelectContent>
+                  </Select>
+                  <Select value={year} onValueChange={handleYearChange}>
+                    <SelectTrigger className="flex-1 sm:w-28 h-9 border-slate-200 focus:ring-blue-500"><SelectValue placeholder="Year" /></SelectTrigger>
+                    <SelectContent>{yearOptions.map((opt) => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}</SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -452,14 +516,12 @@ function AdminOrdersView() {
         </CardContent>
       </Card>
 
-      {statusError && <div className="flex items-center gap-2 text-rose-700 bg-rose-50 p-3 rounded-lg border border-rose-200 text-sm"><XCircle className="h-4 w-4" /> {statusError}</div>}
-
       {isLoading && !data && (
         <div className="space-y-3">{[...Array(5)].map((_, i) => (<Card key={i} className="border-0 shadow-sm"><CardContent className="p-4"><div className="h-8 bg-slate-200 rounded animate-pulse"></div></CardContent></Card>))}</div>
       )}
 
       {!isLoading && orders.length > 0 && (
-        <div className="md:hidden space-y-3">{orders.map((order) => (<AdminOrderCard key={order.id} order={order} onStatusChange={handleStatusChange} />))}</div>
+        <div className="md:hidden space-y-3">{orders.map((order) => (<AdminOrderCard key={order.id} order={order} />))}</div>
       )}
 
       {!isLoading && orders.length === 0 && (
@@ -481,7 +543,7 @@ function AdminOrdersView() {
                   const paymentStatus = order.payment?.payment_status || 'Unpaid';
                   const paymentMethod = order.payment?.payment_method || 'N/A';
                   return (
-                    <tr key={order.id} className="hover:bg-blue-50/30 transition-colors">
+                    <tr key={order.id} className="hover:bg-blue-50/30 transition-colors cursor-pointer" onClick={() => navigate(`/orders/${order.id}`)}>
                       <td className="px-4 py-3 font-mono text-xs text-blue-600 font-medium">#{order.id.slice(0, 8)}</td>
                       <td className="px-4 py-3"><p className="font-medium text-slate-800">{order.customer?.full_name || 'Guest'}</p><p className="text-xs text-gray-500">{order.customer_email || 'guest'}</p></td>
                       <td className="px-4 py-3 text-xs text-slate-600">{order.order_type}</td>
@@ -490,15 +552,9 @@ function AdminOrdersView() {
                       <td className="px-4 py-3"><div className="flex flex-col"><span className="text-xs font-medium text-slate-700">{paymentMethod}</span><Badge className={`text-[10px] w-fit ${paymentStatus === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{paymentStatus}</Badge></div></td>
                       <td className="px-4 py-3"><Badge className={`${badgeClass} flex items-center gap-1.5 w-fit px-3 py-1 border`}>{statusName}</Badge></td>
                       <td className="px-4 py-3">
-                        <Select value={statusName} onValueChange={(value) => { if (value && value !== statusName) handleStatusChange(order.id, value); }}>
-                          <SelectTrigger className="w-28 h-8 text-xs border-slate-200 focus:ring-blue-500"><SelectValue placeholder="Update" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Unpaid">Unpaid</SelectItem><SelectItem value="Pending">Pending</SelectItem>
-                            <SelectItem value="Preparing">Preparing</SelectItem><SelectItem value="Ready for Pickup">Ready for Pickup</SelectItem>
-                            <SelectItem value="Out for Delivery">Out for Delivery</SelectItem><SelectItem value="Completed">Completed</SelectItem>
-                            <SelectItem value="Cancelled">Cancelled</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); navigate(`/orders/${order.id}`); }} className="border-blue-500 text-blue-600 hover:bg-blue-50 h-8 px-3">
+                          <Eye className="h-3.5 w-3.5 mr-1.5" /> View
+                        </Button>
                       </td>
                     </tr>
                   );

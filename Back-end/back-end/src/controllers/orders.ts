@@ -289,10 +289,11 @@ export const getOrderById = async (req: AuthRequest, res: Response) => {
       where: { user_id: userId }
     });
 
-    const isAdmin = req.user?.role?.role_name === 'Admin';
+    // Admins and Staff both work the order feed, so either may open any order.
+    const canViewAnyOrder = isBackOfficeRole(req.user?.role?.role_name);
     const isOwner = profile && order.customer_id === profile.id;
 
-    if (!isAdmin && !isOwner) {
+    if (!canViewAnyOrder && !isOwner) {
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to view this order'
