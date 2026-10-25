@@ -1,11 +1,25 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 
 /* eslint-disable no-useless-assignment */
+
+import { useState } from 'react';
+
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import { updateOrderStatus } from '../api/adminApi';
+import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import {
   ArrowLeft,
   Clock,
@@ -27,7 +41,9 @@ import {
   Home,
   Bike,
   MapPinned,
+  RefreshCw,
 } from 'lucide-react';
+
 
 // ============================================================
 // TYPES
@@ -64,6 +80,7 @@ interface OrderDetail {
     full_name: string;
     phone: string;
     default_address: string;
+    user?: { id: string; email: string };
   };
 }
 
@@ -387,11 +404,118 @@ const getStatusColor = (status: string) => {
   }
 };
 
+// Statuses back-office staff can move an order between (matches orderStatuses seed)
+const ORDER_STATUS_OPTIONS = [
+  'Unpaid',
+  'Pending',
+  'Preparing',
+  'Ready for Pickup',
+  'Out for Delivery',
+  'Completed',
+  'Cancelled',
+];
+
+// ============================================================
+// COMPACT HORIZONTAL STEPPER (admin view — keeps the page on one screen)
+// ============================================================
+function HorizontalSteps({
+  orderType,
+  currentStatus,
+  isCancelled,
+}: {
+  orderType: string;
+  currentStatus: string;
+  isCancelled: boolean;
+}) {
+  const steps =
+    orderType.toLowerCase() === 'delivery' ? DELIVERY_STEPS : PICKUP_STEPS;
+  const currentIdx = isCancelled
+    ? -1
+    : STATUS_TO_STEP_INDEX[currentStatus.toLowerCase()] ?? 0;
+
+  return (
+    <div className="w-full px-1">
+      <div className="flex items-center justify-between relative">
+        <div className="absolute top-3 left-3 right-3 h-0.5 bg-slate-200 z-0" />
+        {!isCancelled && currentIdx >= 0 && (
+          <div
+            className="absolute top-3 left-3 h-0.5 bg-emerald-500 z-1 transition-all duration-500"
+            style={{ width: `${(currentIdx / (steps.length - 1)) * (100 - 6)}%` }}
+          />
+        )}
+
+        {steps.map((step, i) => {
+          const StepIcon = step.icon;
+          const isCompleted = !isCancelled && i < currentIdx;
+          const isActive = !isCancelled && i === currentIdx;
+
+          let circleClasses = '';
+          let textColor = '';
+
+          if (isCompleted) {
+            circleClasses =
+              'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-200';
+            textColor = 'text-emerald-700 font-medium';
+          } else if (isActive) {
+            circleClasses =
+              'bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-200 ring-2 ring-amber-100';
+            textColor = 'text-amber-700 font-semibold';
+          } else {
+            circleClasses = 'bg-white border-slate-300 text-slate-400';
+            textColor = 'text-slate-400';
+          }
+
+          return (
+            <div key={step.key} className="flex flex-col items-center relative z-10">
+              <div
+                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 shrink-0 ${circleClasses}`}
+              >
+                {isCompleted ? (
+                  <CheckCircle className="h-3 w-3" />
+                ) : (
+                  <StepIcon className="h-3 w-3" />
+                )}
+              </div>
+              <p className={`text-[9px] sm:text-[10px] mt-1 text-center leading-tight ${textColor}`}>
+                {step.label}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {isCancelled && (
+        <p className="mt-2 text-xs font-semibold text-red-600">Order cancelled</p>
+      )}
+    </div>
+  );
+}
+
 // ============================================================
 // MAIN COMPONENT
 // ============================================================
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [statusError, setStatusError] = useState<string | null>(null);
+
+  // Admin and Staff manage orders, so they can change the status from here.
+  const isBackOffice = user?.role === 'Admin' || user?.role === 'Staff';
+  const backOfficeOrdersPath = '/admin/orders';
+
+  const statusMutation = useMutation({
+    mutationFn: (status: string) => updateOrderStatus(id as string, status),
+    onSuccess: () => {
+      setStatusError(null);
+      queryClient.invalidateQueries({ queryKey: ['order', id] });
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
+    },
+    onError: (err: any) => {
+      setStatusError(err?.response?.data?.message || 'Failed to update order status');
+    },
+  });
 
   const {
     data: order,
@@ -422,7 +546,7 @@ export default function OrderDetail() {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
         <p className="text-red-500 text-xl">Failed to load order</p>
-        <Link to="/orders">
+        <Link to={isBackOffice ? backOfficeOrdersPath : '/orders'}>
           <Button className="mt-4 bg-amber-700 hover:bg-amber-800">
             <ArrowLeft className="h-4 w-4 mr-2" /> Back to Orders
           </Button>
@@ -434,6 +558,197 @@ export default function OrderDetail() {
   const statusName = order.status?.status_name || 'Unknown';
   const isCancelled = statusName.toLowerCase() === 'cancelled';
 
+  // ==========================================================
+  // ADMIN / STAFF VIEW — full width, everything on one screen
+  // ==========================================================
+  if (isBackOffice) {
+    const paymentStatus = order.payment?.payment_status || 'Unpaid';
+    const summary = [
+      { label: 'Order Type', value: order.order_type, Icon: Package, iconBg: 'bg-amber-50', iconColor: 'text-amber-600' },
+      {
+        label: 'Scheduled For',
+        value: new Date(order.scheduled_for).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
+        Icon: Calendar,
+        iconBg: 'bg-blue-50',
+        iconColor: 'text-blue-600',
+      },
+      { label: 'Payment', value: order.payment?.payment_method || 'N/A', Icon: CreditCard, iconBg: 'bg-green-50', iconColor: 'text-green-600' },
+      {
+        label: 'Payment Status',
+        value: paymentStatus,
+        Icon: CheckCircle,
+        iconBg: paymentStatus === 'Completed' ? 'bg-emerald-50' : 'bg-amber-50',
+        iconColor: paymentStatus === 'Completed' ? 'text-emerald-600' : 'text-amber-600',
+      },
+    ];
+
+    // Height = viewport minus navbar + main padding, so the admin page fits on one screen.
+    return (
+      <div className="w-full bg-[#F8FAFC] p-3 sm:p-4 md:p-6 rounded-2xl space-y-4 flex flex-col lg:h-[calc(100vh-90px)] lg:overflow-hidden">
+        {/* HEADER: back + order identity + status control */}
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link to={backOfficeOrdersPath}>
+              <Button variant="outline" size="sm" aria-label="Back to orders" className="border-blue-500 text-blue-600 hover:bg-blue-50 h-9 w-9 p-0 shrink-0">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-lg sm:text-2xl font-bold text-slate-800">Order Details</h1>
+                <span className="font-mono text-xs sm:text-sm text-blue-600 font-medium">#{order.id.slice(0, 8)}</span>
+                <Badge className={`${getStatusColor(statusName)} flex items-center gap-1.5 px-2.5 py-1 text-xs`}>
+                  {getStatusIcon(statusName)} {statusName}
+                </Badge>
+              </div>
+              <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
+                Placed on{' '}
+                {new Date(order.created_at).toLocaleDateString('en-US', {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
+            <Select
+              value={statusName}
+              onValueChange={(value) => {
+                if (value && value !== statusName) statusMutation.mutate(value);
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-56 h-9 bg-blue-600 hover:bg-blue-700 text-white border-blue-600 focus:ring-blue-300 focus:border-blue-600 [&_svg]:text-white">
+                <SelectValue placeholder="Update status" />
+              </SelectTrigger>
+              <SelectContent>
+                {ORDER_STATUS_OPTIONS.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {status}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {statusMutation.isPending && (
+              <span className="flex items-center text-xs text-gray-500">
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Saving...
+              </span>
+            )}
+          </div>
+        </div>
+
+        {statusError && (
+          <div className="flex items-center gap-2 text-rose-700 bg-rose-50 p-3 rounded-lg border border-rose-200 text-sm">
+            <XCircle className="h-4 w-4" /> {statusError}
+          </div>
+        )}
+
+        {/* BODY: tracking + items on the left, summary on the right */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:flex-1 lg:min-h-0">
+          <div className="lg:col-span-3 flex flex-col gap-4 min-w-0 lg:min-h-0">
+            <Card className="border-0 shadow-sm shrink-0">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <div className="p-1.5 bg-slate-100 rounded-lg">
+                    <ClipboardList className="h-4 w-4 text-slate-600" />
+                  </div>
+                  Order Tracking
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 pb-4">
+                <HorizontalSteps orderType={order.order_type} currentStatus={statusName} isCancelled={isCancelled} />
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm flex flex-col lg:flex-1 lg:min-h-0">
+              <CardHeader className="pb-3 shrink-0">
+                <CardTitle className="text-base">Order Items</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 flex flex-col lg:flex-1 lg:min-h-0">
+                <div className="max-h-[46vh] lg:max-h-none lg:flex-1 lg:min-h-0 overflow-y-auto pr-1 divide-y divide-gray-100">
+                  {order.orderItems.map((item) => (
+                    <div key={item.id} className="flex items-center gap-3 py-2.5">
+                      <div className="h-11 w-11 rounded-lg bg-amber-50 overflow-hidden shrink-0">
+                        {item.product?.image_url ? (
+                          <img src={item.product.image_url} alt={item.product.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center">
+                            <Package className="h-5 w-5 text-amber-300" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">{item.product?.name || 'Product'}</p>
+                        <p className="text-xs text-gray-500">
+                          ${Number(item.product?.price || 0).toFixed(2)} × {item.quantity}
+                        </p>
+                      </div>
+                      <p className="text-sm font-semibold text-slate-800 shrink-0">${Number(item.subtotal).toFixed(2)}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="border-t border-gray-200 mt-3 pt-3 flex justify-between items-center shrink-0">
+                  <span className="text-sm text-gray-600">Total</span>
+                  <span className="text-xl font-bold text-amber-700">${Number(order.total_price).toFixed(2)}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="lg:col-span-2 flex flex-col gap-4 min-w-0 lg:min-h-0">
+            <Card className="border-0 shadow-sm shrink-0">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Order Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {summary.map((item) => (
+                  <div key={item.label} className="flex items-center gap-2.5 rounded-lg border border-slate-100 bg-white p-3">
+                    <div className={`p-2 rounded-lg shrink-0 ${item.iconBg}`}>
+                      <item.Icon className={`h-4 w-4 ${item.iconColor}`} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] text-gray-500">{item.label}</p>
+                      <p className="text-sm font-semibold text-slate-800 truncate">{item.value}</p>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm lg:flex-1">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Customer</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-3">
+                <div>
+                  <p className="font-medium text-slate-800">{order.customer?.full_name || 'Guest'}</p>
+                  {order.customer?.user?.email && <p className="text-xs text-gray-500">{order.customer.user.email}</p>}
+                  {order.customer?.phone && <p className="text-sm text-gray-600 mt-1">{order.customer.phone}</p>}
+                </div>
+                {order.customer?.default_address && (
+                  <div className="flex items-start gap-2 rounded-lg bg-purple-50/60 p-3">
+                    <MapPin className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-[11px] text-purple-700 mb-0.5">Delivery Address</p>
+                      <p className="text-sm font-medium text-slate-800">{order.customer.default_address}</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================================
+  // CUSTOMER VIEW — centred, scrollable tracking timeline
+  // ==========================================================
   return (
     <div className="container mx-auto px-4 py-6 max-w-2xl">
       {/* Breadcrumb */}
@@ -446,7 +761,7 @@ export default function OrderDetail() {
         </Link>
         <ChevronRight className="h-3 w-3" />
         <Link
-          to="/orders"
+          to={isBackOffice ? backOfficeOrdersPath : '/orders'}
           className="hover:text-amber-700 transition-colors"
         >
           Orders
@@ -487,6 +802,51 @@ export default function OrderDetail() {
         currentStatus={statusName}
         isCancelled={isCancelled}
       />
+
+      {/* ===== STATUS CONTROL (Admin / Staff only) ===== */}
+      {isBackOffice && (
+        <Card className="border-0 shadow-sm mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <div className="p-1.5 bg-blue-50 rounded-lg">
+                <RefreshCw className="h-4 w-4 text-blue-600" />
+              </div>
+              Update Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <Select
+                value={statusName}
+                onValueChange={(value) => {
+                  if (value && value !== statusName) statusMutation.mutate(value);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-60 h-10 border-slate-200 focus:ring-blue-500">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ORDER_STATUS_OPTIONS.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {statusMutation.isPending && (
+                <span className="flex items-center text-xs text-gray-500">
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Saving...
+                </span>
+              )}
+            </div>
+            {statusError && (
+              <div className="flex items-center gap-2 text-rose-700 bg-rose-50 p-3 rounded-lg border border-rose-200 text-sm">
+                <XCircle className="h-4 w-4" /> {statusError}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Order Info Cards */}
       <div className="grid grid-cols-2 gap-3 mb-6">
@@ -647,7 +1007,7 @@ export default function OrderDetail() {
       </Card>
 
       {/* Back Button */}
-      <Link to="/orders" className="block">
+      <Link to={isBackOffice ? backOfficeOrdersPath : '/orders'} className="block">
         <Button variant="outline" className="w-full border-gray-200 text-gray-600 hover:bg-gray-50">
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Orders
         </Button>

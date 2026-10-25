@@ -1036,7 +1036,9 @@ export const getLowStockProducts = async (req: AuthRequest, res: Response) => {
 
 /**
  * Delete product (Admin only)
- * Soft delete with order check
+ * Permanent delete — the product row is removed from the database.
+ * Past orders are kept: OrderItems.product_id is nullable with
+ * ON DELETE SET NULL, so order history survives without the product.
  */
 export const deleteProduct = async (req: AuthRequest, res: Response) => {
   try {
@@ -1052,9 +1054,7 @@ export const deleteProduct = async (req: AuthRequest, res: Response) => {
 
     const product = await prisma.products.findUnique({
       where: { id: productId },
-      include: {
-        orderItems: true
-      }
+      select: { id: true, name: true }
     });
 
     if (!product) {
@@ -1064,44 +1064,8 @@ export const deleteProduct = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Check if product has orders
-    if (product.orderItems && product.orderItems.length > 0) {
-      // Soft delete - just mark as unavailable
-      const updatedProduct = await prisma.products.update({
-        where: { id: productId },
-        data: {
-          is_available: false,
-          stock_quantity: 0
-        },
-        include: {
-          category: {
-            select: {
-              id: true,
-              category_name: true,
-            },
-          },
-        },
-      });
-
-      // 🟢 Clear product cache after deletion
-      clearProductCache();
-
-      // 🟢 TASK 2: Add rating stats
-      const stats = await getProductRatingStats(productId);
-
-      return res.json({
-        success: true,
-        message: 'Product has been deactivated (has existing orders)',
-        data: {
-          ...updatedProduct,
-          price: Number(updatedProduct.price),
-          averageRating: stats.averageRating,
-          reviewsCount: stats.reviewsCount
-        }
-      });
-    }
-
-    // Hard delete if no orders
+    // Hard delete. Reviews cascade at the DB level and order items get
+    // product_id = NULL, so no RESTRICT constraint blocks the delete.
     await prisma.products.delete({
       where: { id: productId }
     });
@@ -1111,7 +1075,7 @@ export const deleteProduct = async (req: AuthRequest, res: Response) => {
 
     res.json({
       success: true,
-      message: 'Product deleted successfully'
+      message: `Product "${product.name}" deleted permanently`
     });
   } catch (error) {
     console.error('Error deleting product:', error);

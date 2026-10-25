@@ -566,12 +566,12 @@ function AdminProductsView() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Product</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <strong>{selectedProduct?.name}</strong>?
-              {selectedProduct?.orderItems?.length > 0 && <span className="block mt-2 text-amber-600"><AlertTriangle className="h-4 w-4 inline mr-1" /> This product has {selectedProduct.orderItems.length} associated orders. It will be deactivated instead of permanently deleted.</span>}
+              Are you sure you want to permanently delete <strong>{selectedProduct?.name}</strong>? It will be removed from the catalog for good.
+              {selectedProduct?.orderItems?.length > 0 && <span className="block mt-2 text-amber-600"><AlertTriangle className="h-4 w-4 inline mr-1" /> This product appears in {selectedProduct.orderItems.length} past order(s). Those orders are kept — only the product link is removed from them.</span>}
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteMutation.mutate(selectedProduct?.id)} className="bg-rose-600 hover:bg-rose-700">{deleteMutation.isPending ? 'Deleting...' : 'Delete'}</AlertDialogAction></AlertDialogFooter>
+          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteMutation.mutate(selectedProduct?.id)} className="bg-rose-600 hover:bg-rose-700">{deleteMutation.isPending ? 'Deleting...' : 'Delete Permanently'}</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
@@ -629,6 +629,9 @@ function UserProductsView() {
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [selectedOccasion, setSelectedOccasion] = useState('all');
+  // Active sub-category chip ('all' = every product of the selected main category)
+  const [selectedSub, setSelectedSub] = useState('all');
+  const [subFromLinkResolved, setSubFromLinkResolved] = useState(false);
 
   const { data: productsData, isLoading, isError, error, refetch } = useQuery({ queryKey: ['products'], queryFn: getProducts });
   const { data: categoriesData } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
@@ -637,13 +640,33 @@ function UserProductsView() {
   const products = Array.isArray(productsData) ? productsData : [];
   const categories = categoriesData || [];
 
+  // The dropdown lists main categories only — sub-categories show up as
+  // sliding chips once a main category has been clicked.
+  const mainCategories = categories.filter((cat: any) => !cat.parent_id);
+  const subCategoryChips = selectedCategory
+    ? categories.filter((cat: any) => String(cat.parent_id) === selectedCategory)
+    : [];
+
+  // Support links that point straight at a sub-category (e.g. old bookmarks):
+  // switch to its main category and pre-select the sub-category chip.
+  useEffect(() => {
+    if (subFromLinkResolved || categories.length === 0) return;
+    const paramCategory = searchParams.get('category') || '';
+    const paramCat = categories.find((cat: any) => String(cat.id) === paramCategory);
+    if (paramCat?.parent_id) {
+      setSelectedCategory(String(paramCat.parent_id));
+      setSelectedSub(String(paramCat.id));
+    }
+    setSubFromLinkResolved(true);
+  }, [categories, searchParams, subFromLinkResolved]);
+
   // Occasion chips appear for cake, bread and pastry categories
   const selectedCategoryName =
     categories.find((cat: any) => String(cat.id) === selectedCategory)?.category_name || '';
   const showOccasionChips = isOccasionCategoryName(selectedCategoryName);
 
-  // Selecting a category must also show the products of its subcategories
-  const selectedCategoryIds = useMemo(() => {
+  // Every product of the selected main category, sub-categories included
+  const mainCategoryIds = useMemo(() => {
     if (!selectedCategory) return null;
     const ids = new Set<string>([selectedCategory]);
     categories.forEach((cat: any) => {
@@ -652,11 +675,22 @@ function UserProductsView() {
     return ids;
   }, [selectedCategory, categories]);
 
+  // A selected sub-category chip narrows the products to that sub-category
+  const selectedCategoryIds = useMemo(() => {
+    if (!selectedCategory) return null;
+    if (selectedSub !== 'all') return new Set<string>([selectedSub]);
+    return mainCategoryIds;
+  }, [selectedCategory, selectedSub, mainCategoryIds]);
+
   // Per-occasion counts over the products in the selected category (Orders-page style badges)
   const categoryProducts = useMemo(
     () => products.filter((product) => selectedCategoryIds?.has(String(product.category_id)) ?? true),
     [products, selectedCategoryIds]
   );
+  const mainCategoryProductCount =
+    products.filter((product) => mainCategoryIds?.has(String(product.category_id))).length;
+  const subCategoryProductCount = (subCategoryId: string) =>
+    products.filter((product) => String(product.category_id) === subCategoryId).length;
   const occasionCount = (value: string) => {
     if (value === 'all') return categoryProducts.length;
     return categoryProducts.filter((product) => matchesOccasion(product, value)).length;
@@ -729,6 +763,7 @@ function UserProductsView() {
               const val = e.target.value;
               setSelectedCategory(val);
               setSelectedOccasion('all');
+              setSelectedSub('all');
               const params = new URLSearchParams(searchParams);
               if (val) params.set('category', val);
               else params.delete('category');
@@ -737,7 +772,7 @@ function UserProductsView() {
             className="w-full h-10 px-3 pr-8 rounded-lg border border-red-200 bg-red-50/40 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-400 appearance-none cursor-pointer"
           >
             <option value="">All Categories</option>
-            {categories.map((cat: any) => (
+            {mainCategories.map((cat: any) => (
               <option key={cat.id} value={cat.id}>{cat.category_name}</option>
             ))}
           </select>
@@ -752,6 +787,7 @@ function UserProductsView() {
               setSearchQuery('');
               setSelectedCategory('');
               setSelectedOccasion('all');
+              setSelectedSub('all');
               setSearchParams({}, { replace: true });
             }}
           >
@@ -760,8 +796,67 @@ function UserProductsView() {
         )}
       </div>
 
-      {/* Occasion Chips (Orders-page style) — for cake, bread & pastry categories */}
-      {showOccasionChips && (
+      {/* Sub-category chips — shown after a main category is clicked */}
+      {selectedCategory && subCategoryChips.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-3 mb-5 -mx-1 px-1 scrollbar-hide">
+          <button
+            type="button"
+            onClick={() => setSelectedSub('all')}
+            className={`
+              flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+              border transition-all duration-200 whitespace-nowrap shrink-0 cursor-pointer
+              ${
+                selectedSub === 'all'
+                  ? 'bg-red-500 text-white border-red-500 shadow-sm'
+                  : 'bg-red-50 text-red-700 border-red-200 hover:shadow-sm'
+              }
+            `}
+          >
+            All {selectedCategoryName}
+            <span
+              className={`
+                inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[10px] font-bold px-1
+                ${selectedSub === 'all' ? 'bg-white/25 text-white' : 'bg-black/5 text-inherit'}
+              `}
+            >
+              {mainCategoryProductCount}
+            </span>
+          </button>
+          {subCategoryChips.map((sub) => {
+            const isActive = selectedSub === String(sub.id);
+            return (
+              <button
+                key={sub.id}
+                type="button"
+                onClick={() => setSelectedSub(String(sub.id))}
+                className={`
+                  flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                  border transition-all duration-200 whitespace-nowrap shrink-0 cursor-pointer
+                  ${
+                    isActive
+                      ? 'bg-red-500 text-white border-red-500 shadow-sm'
+                      : 'bg-red-50 text-red-700 border-red-200 hover:shadow-sm'
+                  }
+                `}
+              >
+                {sub.category_name}
+                <span
+                  className={`
+                    inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[10px] font-bold px-1
+                    ${isActive ? 'bg-white/25 text-white' : 'bg-black/5 text-inherit'}
+                  `}
+                >
+                  {subCategoryProductCount(String(sub.id))}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Occasion Chips (Orders-page style) — for cake, bread & pastry categories
+          that have no sub-categories */}
+      {showOccasionChips && subCategoryChips.length === 0 && (
         <div className="flex gap-2 overflow-x-auto pb-3 mb-5 -mx-1 px-1 scrollbar-hide">
           {OCCASIONS.map((occasion) => {
             const count = occasionCount(occasion.value);
