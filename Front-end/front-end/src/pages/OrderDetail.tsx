@@ -1,4 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+
+/* eslint-disable no-useless-assignment */
+
 import { useState } from 'react';
+
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -37,6 +43,7 @@ import {
   MapPinned,
   RefreshCw,
 } from 'lucide-react';
+
 
 // ============================================================
 // TYPES
@@ -207,6 +214,7 @@ function OrderTrackingTimeline({
 
             // Determine circle and connector colors
             let circleBg = '';
+            
             let circleBorder = '';
             let circleText = '';
             let connectorColor = '';
@@ -287,7 +295,7 @@ function OrderTrackingTimeline({
                   {!isLast && (
                     <div
                       className={`
-                        w-0.5 flex-1 min-h-[2rem]
+                        w-0.5 flex-1 min-h-8
                         ${isCompleted ? connectorColor : 'bg-slate-200'}
                         ${isCompleted ? '' : 'border-l-2 border-dashed border-slate-200 bg-transparent'}
                       `}
@@ -431,7 +439,7 @@ function HorizontalSteps({
         <div className="absolute top-3 left-3 right-3 h-0.5 bg-slate-200 z-0" />
         {!isCancelled && currentIdx >= 0 && (
           <div
-            className="absolute top-3 left-3 h-0.5 bg-emerald-500 z-[1] transition-all duration-500"
+            className="absolute top-3 left-3 h-0.5 bg-emerald-500 z-1 transition-all duration-500"
             style={{ width: `${(currentIdx / (steps.length - 1)) * (100 - 6)}%` }}
           />
         )}

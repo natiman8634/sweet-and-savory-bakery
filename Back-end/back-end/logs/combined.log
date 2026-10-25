@@ -357,7 +357,6 @@
 {"level":"info","message":"GET /api/admin/orders?page=1&limit=10&sortBy=created_at&sortOrder=desc 304 - 5340ms","timestamp":"2026-07-29T08:40:06.410Z"}
 {"level":"info","message":"GET /api/admin/roles 404 - 22ms","timestamp":"2026-07-29T08:40:13.027Z"}
 {"level":"info","message":"GET /api/admin/users 304 - 956ms","timestamp":"2026-07-29T08:40:13.989Z"}
-=======
 {"level":"info","message":"GET /api/products 200 - 4709ms","timestamp":"2026-08-04T18:54:57.958Z"}
 {"level":"info","message":"GET /api/products 200 - 3243ms","timestamp":"2026-08-04T19:15:56.632Z"}
 {"level":"info","message":"GET /api/products 200 - 3534ms","timestamp":"2026-08-04T20:14:02.317Z"}
@@ -5328,6 +5327,26 @@
 {"level":"info","message":"OPTIONS /api/categories 204 - 10ms","timestamp":"2026-10-17T09:18:47.564Z"}
 {"level":"info","message":"OPTIONS /api/products 204 - 3ms","timestamp":"2026-10-17T09:18:48.113Z"}
 {"level":"info","message":"OPTIONS /api/categories 204 - 1ms","timestamp":"2026-10-17T09:18:48.581Z"}
+{"level":"info","message":"OPTIONS /api/products 204 - 34ms","timestamp":"2026-10-17T09:24:49.906Z"}
+{"level":"info","message":"OPTIONS /api/categories 204 - 5ms","timestamp":"2026-10-17T09:24:49.939Z"}
+{"level":"info","message":"OPTIONS /api/products 204 - 2ms","timestamp":"2026-10-17T09:24:51.027Z"}
+{"level":"info","message":"OPTIONS /api/categories 204 - 1ms","timestamp":"2026-10-17T09:24:51.029Z"}
+{"level":"info","message":"OPTIONS /api/products 204 - 4ms","timestamp":"2026-10-17T09:24:53.010Z"}
+{"level":"info","message":"OPTIONS /api/products 204 - 2ms","timestamp":"2026-10-17T09:24:54.024Z"}
+{"level":"info","message":"OPTIONS /api/products 204 - 2ms","timestamp":"2026-10-17T09:24:59.390Z"}
+{"level":"info","message":"OPTIONS /api/categories 204 - 2ms","timestamp":"2026-10-17T09:24:59.402Z"}
+{"level":"info","message":"OPTIONS /api/products 204 - 2ms","timestamp":"2026-10-17T09:25:00.424Z"}
+{"level":"info","message":"OPTIONS /api/categories 204 - 0ms","timestamp":"2026-10-17T09:25:00.427Z"}
+{"level":"info","message":"OPTIONS /api/products 204 - 1ms","timestamp":"2026-10-17T09:25:24.891Z"}
+{"level":"info","message":"OPTIONS /api/categories 204 - 6ms","timestamp":"2026-10-17T09:25:24.900Z"}
+{"level":"info","message":"OPTIONS /api/products 204 - 2ms","timestamp":"2026-10-17T09:25:25.906Z"}
+{"level":"info","message":"OPTIONS /api/categories 204 - 2ms","timestamp":"2026-10-17T09:25:25.913Z"}
+{"level":"info","message":"OPTIONS /api/orders/my-orders 204 - 1ms","timestamp":"2026-10-17T09:25:28.209Z"}
+{"level":"info","message":"OPTIONS /api/orders/my-orders 204 - 2ms","timestamp":"2026-10-17T09:25:29.222Z"}
+{"level":"info","message":"OPTIONS /api/products 204 - 3ms","timestamp":"2026-10-17T09:25:40.264Z"}
+{"level":"info","message":"OPTIONS /api/categories 204 - 1ms","timestamp":"2026-10-17T09:25:40.269Z"}
+{"level":"info","message":"OPTIONS /api/products 204 - 1ms","timestamp":"2026-10-17T09:25:41.294Z"}
+{"level":"info","message":"OPTIONS /api/categories 204 - 0ms","timestamp":"2026-10-17T09:25:41.297Z"}
 {"level":"info","message":"GET /api/categories 200 - 965ms","timestamp":"2026-10-17T19:26:29.375Z"}
 {"level":"info","message":"GET /api/products 200 - 2763ms","timestamp":"2026-10-17T19:26:31.021Z"}
 {"level":"info","message":"GET /api/products 304 - 4ms","timestamp":"2026-10-17T19:26:32.044Z"}
