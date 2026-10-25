@@ -1,3 +1,5 @@
+
+/* eslint-disable no-useless-assignment */
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -16,7 +18,6 @@ import {
   MapPin,
   Calendar,
   ClipboardList,
-  CircleCheckBig,
   PackageCheck,
   Store,
   Wallet,
@@ -190,13 +191,13 @@ function OrderTrackingTimeline({
             const isCompleted = !isCancelled && index < currentStepIndex;
             const isActive =
               !isCancelled && index === currentStepIndex;
-            const isUpcoming = isCancelled || index > currentStepIndex;
             const isLast = index === steps.length - 1;
 
             const StepIcon = step.icon;
 
             // Determine circle and connector colors
             let circleBg = '';
+            
             let circleBorder = '';
             let circleText = '';
             let connectorColor = '';
@@ -277,7 +278,7 @@ function OrderTrackingTimeline({
                   {!isLast && (
                     <div
                       className={`
-                        w-0.5 flex-1 min-h-[2rem]
+                        w-0.5 flex-1 min-h-8
                         ${isCompleted ? connectorColor : 'bg-slate-200'}
                         ${isCompleted ? '' : 'border-l-2 border-dashed border-slate-200 bg-transparent'}
                       `}
